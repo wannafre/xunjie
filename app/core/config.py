@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     # JWT Algorithm
     ALGORITHM: str = "HS256"
     
+    # Captcha configurations
+    CAPTCHA_POLICY: int = 0  # 0: Never, 1: Always, 2: Intelligent (progressive)
+    CAPTCHA_MAX_FAILURES: int = 1  # Password fail limit before captcha triggers (policy 2)
+    CAPTCHA_IP_LIMIT_PERIOD: int = 10  # Seconds window for request limit (policy 2)
+    CAPTCHA_IP_LIMIT_COUNT: int = 5  # Request count limit within period (policy 2)
+    
     # CORS Origins
     BACKEND_CORS_ORIGINS: Union[str, List[str]] = [
         "http://localhost",

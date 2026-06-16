@@ -81,10 +81,15 @@ xunjie/
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `10080` | JWT Token 有效期（分钟） |
 | `DATABASE_URL` | `mysql+aiomysql://root:666666@localhost:3306/fast_db` | 数据库连接字符串，支持异步 MySQL (`aiomysql`) |
 | `ALGORITHM` | `HS256` | JWT 签发签名算法 |
+| `CAPTCHA_POLICY` | `0` | 验证码校验策略：`0`-从不开启；`1`-始终开启；`2`-智能阶梯触发 |
+| `CAPTCHA_MAX_FAILURES` | `1` | 密码错误最大重试次数，触发验证码阈值（用于策略 2） |
+| `CAPTCHA_IP_LIMIT_PERIOD` | `10` | IP 请求统计时间窗口（秒，用于策略 2） |
+| `CAPTCHA_IP_LIMIT_COUNT` | `5` | 时间窗口内同 IP 最大登录请求次数，触发验证码阈值（用于策略 2） |
 | `BACKEND_CORS_ORIGINS` | `http://localhost,http://localhost:5173,http://localhost:8000` | 跨域允许的来源列表（支持逗号分隔或 JSON 数组） |
 | `HOST` | `127.0.0.1` | 本地服务监听地址（Docker 部署时设为 `0.0.0.0`） |
 | `PORT` | `8000` | 本地服务监听端口 |
 | `RELOAD` | `True` | 是否开启热重载（生产/Docker 环境建议为 `False`） |
+
 
 ### 2. Docker 环境下如何进行配置替换
 
@@ -153,4 +158,46 @@ docker run -d \
    ```bash
    npm run dev
    ```
-   前端服务将启动在 [http://localhost:5173](http://localhost:5173)。
+    前端服务将启动在 [http://localhost:5173](http://localhost:5173)。
+
+---
+
+## 🔒 AJ-Captcha 验证码安全策略与联调协议
+
+系统引入了行业标准的交互式滑块验证码（AJ-Captcha 协议规范），具备渐进式阶梯激活策略，由后端登录接口统一裁决并驱动前端交互。
+
+### 1. 验证码交互接口
+*   **获取验证码** (`POST /api/v1/captcha/get`)：
+    *   请求体：`{"captchaType": "blockPuzzle"}`
+    *   返回：大图/小图的 Base64 编码、临时追踪 `token` 以及用于前端加密的 16 位 AES `secretKey`。
+*   **校验验证码** (`POST /api/v1/captcha/check`)：
+    *   请求体：`{"captchaType": "blockPuzzle", "token": "...", "pointJson": "AES加密后的滑动X/Y坐标"}`
+    *   返回：`{"repCode": "0000", "repMsg": "success"}`，表明校验通过，将该 `token` 在后端标记为已通过验证。
+
+### 2. 状态码驱动交互流程
+登录流程以**状态码 428 (Precondition Required)** 为核心驱动：
+
+1.  **提交登录**：前端发送 `/api/v1/auth/login` 请求（参数：`username`, `password`）。
+2.  **后端裁决**：
+    *   如果策略判定**不需要**验证码：直接验证密码并返回 JWT Token（200 OK）。
+    *   如果策略判定**需要**验证码（或提交的验证凭证缺失/失效）：
+        *   返回 **HTTP 428** 状态码，响应体为：
+            ```json
+            {
+              "detail": {
+                "code": "CAPTCHA_REQUIRED",
+                "message": "需要验证码验证"
+              }
+            }
+            ```
+3.  **前端响应**：前端拦截到 HTTP 428 且 `code` 为 `CAPTCHA_REQUIRED` 时，主动弹出滑块验证码弹窗。
+4.  **人机校验**：用户完成滑动，前端先调用 `/captcha/check` 校验通过，拿到标记为 verified 的 `token`。
+5.  **重新提交**：前端将 `token`（或 `token---encryptedPointJson`）作为 `captchaVerification` 参数加入登录请求中重新发送，后端消费该 Token 后完成登录。
+
+### 3. 三种策略说明
+*   **策略 0（从不开启）**：登录不进行任何验证码拦截，直接比对密码。
+*   **策略 1（始终开启）**：无论如何，第一次登录请求就会被拦截并返回 428，前端必须先弹验证码。
+*   **策略 2（智能触发/阶梯触发 - 生产推荐）**：
+    *   正常情况下登录直接通过。
+    *   一旦该账号**密码输错 1 次**（阈值由 `CAPTCHA_MAX_FAILURES` 配置），或者**同 IP 请求太频繁**（10 秒内请求达 5 次，由 `CAPTCHA_IP_LIMIT_COUNT` 配置），后续的登录请求就会被立刻拦截（返回 428），要求进行滑块验证。
+    *   一旦登录成功，该账号和该 IP 的失败记录会自动清空，恢复正常流程。
