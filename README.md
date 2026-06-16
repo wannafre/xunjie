@@ -184,13 +184,12 @@ docker run -d \
         *   返回 **HTTP 428** 状态码，响应体为：
             ```json
             {
-              "detail": {
-                "code": "CAPTCHA_REQUIRED",
-                "message": "需要验证码验证"
-              }
+              "code": 42801,
+              "message": "需要验证码验证",
+              "data": null
             }
             ```
-3.  **前端响应**：前端拦截到 HTTP 428 且 `code` 为 `CAPTCHA_REQUIRED` 时，主动弹出滑块验证码弹窗。
+3.  **前端响应**：前端拦截到 HTTP 428 且 `code` 为 `42801` 时，主动弹出滑块验证码弹窗。
 4.  **人机校验**：用户完成滑动，前端先调用 `/captcha/check` 校验通过，拿到标记为 verified 的 `token`。
 5.  **重新提交**：前端将 `token`（或 `token---encryptedPointJson`）作为 `captchaVerification` 参数加入登录请求中重新发送，后端消费该 Token 后完成登录。
 

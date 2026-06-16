@@ -12,7 +12,7 @@ from app.crud.user import get_user_by_username
 from app.schemas.user import UserOut
 from app.services.auth_service import authenticate_user
 from app.core.captcha import captcha_manager, verify_captcha_verification
-from app.core.response import make_response
+from app.core.response import make_response, ResponseCode
 
 router = APIRouter()
 
@@ -100,7 +100,7 @@ async def login(
         if not login_data.captchaVerification:
             return make_response(
                 status_code=status.HTTP_428_PRECONDITION_REQUIRED,
-                code="CAPTCHA_REQUIRED",
+                code=ResponseCode.CAPTCHA_REQUIRED,
                 message="需要验证码验证"
             )
             
@@ -109,7 +109,7 @@ async def login(
         if not is_valid:
             return make_response(
                 status_code=status.HTTP_428_PRECONDITION_REQUIRED,
-                code="CAPTCHA_REQUIRED",
+                code=ResponseCode.CAPTCHA_REQUIRED,
                 message="验证码失效或验证未通过"
             )
 
@@ -121,7 +121,7 @@ async def login(
         captcha_manager.record_fail(ip)
         return make_response(
             status_code=status.HTTP_400_BAD_REQUEST,
-            code="INVALID_CREDENTIALS",
+            code=ResponseCode.INVALID_CREDENTIALS,
             message="用户名或密码错误"
         )
         
