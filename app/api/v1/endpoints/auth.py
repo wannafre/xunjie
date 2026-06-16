@@ -66,6 +66,20 @@ async def get_current_user(
         raise credentials_exception
     return user
 
+def check_permissions(required_perm: str):
+    """
+    FastAPI dependency to check if the current user has the specified permission.
+    """
+    async def dependency(current_user: Any = Depends(get_current_user)) -> Any:
+        if required_perm not in current_user.permissions:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"权限不足，需要权限: {required_perm}"
+            )
+        return current_user
+    return dependency
+
+
 @router.post("/login", response_model=Token)
 async def login(
     request: Request,
