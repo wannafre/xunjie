@@ -44,3 +44,9 @@ class MenuOut(MenuBase):
 
     class Config:
         from_attributes = True
+
+class MenuTree(MenuOut):
+    children: list["MenuTree"] = []
+
+MenuTree.model_rebuild()
+

@@ -1,7 +1,9 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import auth, captcha
+from app.api.v1.endpoints import auth, captcha, menu
 
 api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(captcha.router, prefix="/captcha", tags=["captcha"])
+api_router.include_router(menu.router, prefix="/menu", tags=["menu"])
+
 

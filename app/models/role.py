@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Table, ForeignKey
+from sqlalchemy import Column, Integer, BigInteger, String, Table, ForeignKey
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -6,9 +6,10 @@ from app.core.database import Base
 user_roles = Table(
     "user_roles",
     Base.metadata,
-    Column("user_id", Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column("user_id", BigInteger, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
     Column("role_id", Integer, ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True)
 )
+
 
 # Association Table for Role <-> Menu (Many-to-Many)
 role_menus = Table(

@@ -147,3 +147,6 @@ web/pnpm-debug.log*
 *.sw?
 .DS_Store
 Thumbs.db
+
+# For Test
+test.py

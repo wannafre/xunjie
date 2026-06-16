@@ -1,10 +1,12 @@
 import { defineStore } from 'pinia'
 import request from '../utils/request'
+import { resetDynamicRoutesFlag } from '../router'
 
 export interface UserState {
   token: string | null
   username: string
   roles: string[]
+  permissions: string[]
   avatar: string
   introduction: string
 }
@@ -14,6 +16,7 @@ export const useUserStore = defineStore('user', {
     token: localStorage.getItem('token'),
     username: '',
     roles: [],
+    permissions: [],
     avatar: '',
     introduction: ''
   }),
@@ -26,9 +29,11 @@ export const useUserStore = defineStore('user', {
       this.token = null
       this.username = ''
       this.roles = []
+      this.permissions = []
       this.avatar = ''
       this.introduction = ''
       localStorage.removeItem('token')
+      resetDynamicRoutesFlag()
     },
     async login(loginForm: { username: string; password: string }) {
       const res: any = await request.post('/auth/login', loginForm)
@@ -42,8 +47,9 @@ export const useUserStore = defineStore('user', {
       const res: any = await request.get('/auth/info')
       this.username = res.username
       this.roles = res.roles
+      this.permissions = res.permissions || []
       this.avatar = res.avatar
-      this.introduction = res.introduction
+      this.introduction = res.remark || ''
       return res
     },
     async logout() {
@@ -55,3 +61,4 @@ export const useUserStore = defineStore('user', {
     }
   }
 })
+

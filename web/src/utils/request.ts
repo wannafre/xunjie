@@ -51,6 +51,8 @@ service.interceptors.response.use(
       setTimeout(() => {
         window.location.hash = '#/login'
       }, 1000)
+    } else if (error.response && error.response.status === 428) {
+      // Captcha challenge required, bypass global error message to handle in the login view
     } else {
       ElMessage.error(message)
     }
