@@ -6,6 +6,7 @@ class UserBase(BaseModel):
     roles: List[str] = Field(default=["user"], description="用户角色")
     avatar: Optional[str] = Field(default=None, description="用户头像URL")
     introduction: Optional[str] = Field(default=None, description="用户自我介绍")
+    salt: Optional[str] = Field(default=None, description="加密盐")
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=6, description="密码")

@@ -1,3 +1,5 @@
+import random
+import string
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import Optional
@@ -22,12 +24,14 @@ async def get_user_by_username(db: AsyncSession, username: str) -> Optional[User
 
 async def create_user(db: AsyncSession, user_in: UserCreate) -> User:
     """
-    Create a new user with hashed password.
+    Create a new user with hashed password and custom generated salt.
     """
-    hashed_password = get_password_hash(user_in.password)
-    # Exclude plain password and use hashed password instead
-    user_data = user_in.model_dump(exclude={"password"})
-    db_user = User(**user_data, hashed_password=hashed_password)
+    salt = user_in.salt or "".join(random.choices(string.ascii_letters + string.digits, k=16))
+    hashed_password = get_password_hash(user_in.password, salt)
+    
+    # Exclude plain password and override salt/hashed_password
+    user_data = user_in.model_dump(exclude={"password", "salt"})
+    db_user = User(**user_data, hashed_password=hashed_password, salt=salt)
     db.add(db_user)
     await db.commit()
     await db.refresh(db_user)
@@ -35,12 +39,14 @@ async def create_user(db: AsyncSession, user_in: UserCreate) -> User:
 
 async def update_user(db: AsyncSession, db_user: User, user_in: UserUpdate) -> User:
     """
-    Update user attributes, hashes password if provided.
+    Update user attributes. Regenerates salt if password is changed.
     """
     update_data = user_in.model_dump(exclude_unset=True)
     if "password" in update_data and update_data["password"]:
-        hashed_password = get_password_hash(update_data["password"])
+        new_salt = "".join(random.choices(string.ascii_letters + string.digits, k=16))
+        hashed_password = get_password_hash(update_data["password"], new_salt)
         db_user.hashed_password = hashed_password
+        db_user.salt = new_salt
         del update_data["password"]
 
     for field, value in update_data.items():

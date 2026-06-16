@@ -17,7 +17,7 @@ async def authenticate_user(db: AsyncSession, username: str, password: str) -> O
     user = await get_user_by_username(db, username)
     if not user:
         return None
-    if not verify_password(password, user.hashed_password):
+    if not verify_password(password, user.hashed_password, user.salt):
         return None
     return user
 
