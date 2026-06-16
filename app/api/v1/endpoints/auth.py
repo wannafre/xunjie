@@ -12,6 +12,7 @@ from app.crud.user import get_user_by_username
 from app.schemas.user import UserOut
 from app.services.auth_service import authenticate_user
 from app.core.captcha import captcha_manager, verify_captcha_verification
+from app.core.response import make_response
 
 router = APIRouter()
 
@@ -97,17 +98,19 @@ async def login(
     # 如果需要验证码，校验验证码凭证
     if captcha_required:
         if not login_data.captchaVerification:
-            raise HTTPException(
+            return make_response(
                 status_code=status.HTTP_428_PRECONDITION_REQUIRED,
-                detail={"code": "CAPTCHA_REQUIRED", "message": "需要验证码验证"}
+                code="CAPTCHA_REQUIRED",
+                message="需要验证码验证"
             )
             
         # 验证凭证合法性 (一次性消费，防止重放)
         is_valid = verify_captcha_verification(login_data.captchaVerification)
         if not is_valid:
-            raise HTTPException(
+            return make_response(
                 status_code=status.HTTP_428_PRECONDITION_REQUIRED,
-                detail={"code": "CAPTCHA_REQUIRED", "message": "验证码失效或验证未通过"}
+                code="CAPTCHA_REQUIRED",
+                message="验证码失效或验证未通过"
             )
 
     # 进行用户名/密码认证
@@ -116,9 +119,10 @@ async def login(
         # 登录失败，累加该用户名和该IP的失败计数
         captcha_manager.record_fail(username)
         captcha_manager.record_fail(ip)
-        raise HTTPException(
+        return make_response(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="用户名或密码错误"
+            code="INVALID_CREDENTIALS",
+            message="用户名或密码错误"
         )
         
     # 认证成功，重置失败次数计数器
@@ -135,5 +139,6 @@ async def get_info(current_user: Any = Depends(get_current_user)) -> Any:
 @router.post("/logout")
 async def logout() -> Any:
     return {"message": "Success"}
+
 
 
