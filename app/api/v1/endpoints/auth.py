@@ -1,11 +1,16 @@
 from datetime import datetime, timedelta
-from typing import Any, List
+from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.database import get_db
+from app.crud.user import get_user_by_username
+from app.schemas.user import UserOut
+from app.services.auth_service import authenticate_user
 
 router = APIRouter()
 
@@ -20,13 +25,6 @@ class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
-class UserInfo(BaseModel):
-    username: str
-    roles: List[str]
-    avatar: str
-    introduction: str
-    id: int
-
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
     if expires_delta:
@@ -37,7 +35,10 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
-async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserInfo:
+async def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db)
+) -> Any:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -51,43 +52,30 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserInfo:
     except JWTError:
         raise credentials_exception
     
-    # Mock user retrieval
-    if username == "admin":
-        return UserInfo(
-            id=1,
-            username="admin",
-            roles=["admin"],
-            avatar="https://wpimg.wallstcn.com/f778738c-e4f8-4870-b634-56703b4acafe.gif",
-            introduction="I am a super administrator"
-        )
-    elif username == "editor":
-        return UserInfo(
-            id=2,
-            username="editor",
-            roles=["editor"],
-            avatar="https://wpimg.wallstcn.com/f778738c-e4f8-4870-b634-56703b4acafe.gif",
-            introduction="I am an editor"
-        )
-    else:
+    user = await get_user_by_username(db, username)
+    if user is None:
         raise credentials_exception
+    return user
 
 @router.post("/login", response_model=Token)
-async def login(login_data: LoginRequest) -> Any:
-    # Accept admin/123456 or editor/123456 as login
-    if (login_data.username == "admin" and login_data.password == "123456") or \
-       (login_data.username == "editor" and login_data.password == "123456"):
-        access_token = create_access_token(data={"sub": login_data.username})
-        return {"access_token": access_token, "token_type": "bearer"}
-    else:
+async def login(
+    login_data: LoginRequest,
+    db: AsyncSession = Depends(get_db)
+) -> Any:
+    user = await authenticate_user(db, login_data.username, login_data.password)
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="用户名或密码错误"
         )
+    access_token = create_access_token(data={"sub": user.username})
+    return {"access_token": access_token, "token_type": "bearer"}
 
-@router.get("/info", response_model=UserInfo)
-async def get_info(current_user: UserInfo = Depends(get_current_user)) -> Any:
+@router.get("/info", response_model=UserOut)
+async def get_info(current_user: Any = Depends(get_current_user)) -> Any:
     return current_user
 
 @router.post("/logout")
 async def logout() -> Any:
     return {"message": "Success"}
+

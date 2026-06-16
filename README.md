@@ -11,14 +11,21 @@
 ```text
 xunjie/
 ├── app/                  # 后端 FastAPI 应用程序目录
-│   ├── api/              # API 接口路由层
-│   │   └── v1/           # API 版本 1 (endpoints 包含实际的业务控制器)
+│   ├── api/              # API 接口路由层 (类似于 Controller)
+│   │   └── v1/           # API 版本 1 (endpoints 对应接口控制器)
 │   ├── core/             # 核心配置模块 (配置加载、数据库初始化、安全工具)
-│   │   ├── config.py     # 动态配置载入模块 (支持多环境变量文件及Docker覆盖)
-│   │   └── database.py   # SQLAlchemy 异步连接池与会话管理
-│   ├── models/           # 数据库 ORM 模型定义目录
-│   ├── schemas/          # Pydantic 数据校验与序列化模式目录
-│   └── main.py           # FastAPI 实例初始化与全局中间件配置
+│   │   ├── config.py     # 动态配置载入模块
+│   │   ├── database.py   # SQLAlchemy 异步连接池与会话管理
+│   │   └── security.py   # 密码哈希与校验工具
+│   ├── crud/             # 数据库增删改查业务 (DAO / Repository 层)
+│   │   └── user.py       # 用户表数据库操作
+│   ├── services/         # 核心业务服务层 (Service 层)
+│   │   └── auth_service.py # 鉴权与数据初始化种子服务
+│   ├── models/           # 数据库 ORM 模型定义目录 (Entity)
+│   │   └── user.py       # 用户 ORM 模型
+│   ├── schemas/          # Pydantic 数据校验与序列化模式目录 (DTO)
+│   │   └── user.py       # 用户 Pydantic 数据规范
+│   └── main.py           # FastAPI 实例初始化、应用生命周期与全局中间件配置
 ├── web/                  # 前端 Vue 3 + TypeScript 应用程序目录
 │   ├── src/              # 前端源码
 │   │   ├── api/          # 接口请求层
