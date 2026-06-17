@@ -54,6 +54,13 @@
         <template #optional="{ record }">
           <div class="table-actions">
             <a-link type="primary" @click="handleUpdate(record)">修改</a-link>
+            <a-link
+              v-if="record.username !== 'admin' && record.username !== userStore.username"
+              status="warning"
+              @click="handleResetPwd(record)"
+            >
+              重置密码
+            </a-link>
             <a-link status="danger" @click="handleDelete(record)">删除</a-link>
           </div>
         </template>
@@ -134,12 +141,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, h } from 'vue'
 import { Message, Modal } from '@arco-design/web-vue'
 import type { TableColumnData } from '@arco-design/web-vue'
 import { IconPlus } from '@arco-design/web-vue/es/icon'
-import { getUserList, createUser, updateUser, deleteUser } from '../../../api/user'
+import { getUserList, createUser, updateUser, deleteUser, resetUserPassword } from '../../../api/user'
 import { getRoleList } from '../../../api/role'
+import { useUserStore } from '../../../store/user'
 import { useDictStore } from '../../../store/dict'
 import { deepClone, formatDate } from '../../../utils'
 
@@ -147,6 +155,7 @@ const loading = ref(false)
 const tableData = ref<any[]>([])
 const roleOptions = ref<any[]>([])
 const dictStore = useDictStore()
+const userStore = useUserStore()
 const dialogVisible = ref(false)
 const dialogType = ref<'create' | 'update'>('create')
 const userFormRef = ref()
@@ -174,7 +183,7 @@ const columns: TableColumnData[] = [
   { title: '角色', slotName: 'roles', width: 180 },
   { title: '最后登录时间', slotName: 'login_date', width: 180 },
   { title: '创建时间', slotName: 'create_time', width: 180 },
-  { title: '操作', slotName: 'optional', align: 'left', width: 140 }
+  { title: '操作', slotName: 'optional', align: 'left', width: 220 }
 ]
 
 const userForm = reactive({
@@ -303,6 +312,41 @@ async function handleDelete(row: any) {
         await deleteUser(row.id)
         Message.success('删除成功')
         getList()
+      } catch (err) {
+        console.error(err)
+      }
+    }
+  })
+}
+
+async function handleResetPwd(row: any) {
+  Modal.confirm({
+    title: '确认重置密码',
+    titleAlign: 'start',
+    content: `您确定要重置用户 "${row.username}" 的密码吗？该操作不可撤销。`,
+    okText: '确定',
+    cancelText: '取消',
+    simple: false,
+    okButtonProps: {
+      status: 'warning'
+    },
+    async onOk() {
+      try {
+        const res: any = await resetUserPassword(row.id)
+        if (res && res.new_password) {
+          Modal.info({
+            title: '重置密码成功',
+            titleAlign: 'start',
+            simple: false,
+            content: () => h('div', { style: 'text-align: center; padding: 10px 0;' }, [
+              h('p', { style: 'color: #86909C; margin-bottom: 8px;' }, '该用户的新密码已随机生成，请通知用户登录后及时修改：'),
+              h('div', { 
+                style: 'font-size: 20px; font-weight: bold; color: #165DFF; background-color: #F2F3F5; padding: 12px; border-radius: 4px; display: inline-block; letter-spacing: 1px; margin: 8px 0; border: 1px dashed #B3D4FF;' 
+              }, res.new_password)
+            ]),
+            okText: '好的，我已记住'
+          })
+        }
       } catch (err) {
         console.error(err)
       }

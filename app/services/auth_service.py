@@ -65,6 +65,7 @@ async def seed_default_users(db: AsyncSession) -> None:
                 {"name": "用户新增", "perms": "system:user:add"},
                 {"name": "用户修改", "perms": "system:user:edit"},
                 {"name": "用户删除", "perms": "system:user:remove"},
+                {"name": "重置密码", "perms": "system:user:resetPwd"},
             ],
             "角色管理": [
                 {"name": "角色查询", "perms": "system:role:query"},

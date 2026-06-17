@@ -19,3 +19,7 @@ export function updateUser(id: number | string, data: any) {
 export function deleteUser(id: number | string) {
   return request.delete(`/user/${id}`)
 }
+
+export function resetUserPassword(id: number | string) {
+  return request.put(`/user/${id}/reset-pwd`)
+}
