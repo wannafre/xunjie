@@ -6,15 +6,12 @@
         <div class="card-header">
           <span class="title">菜单管理</span>
           <div class="header-actions">
-            <a-input-search
-              v-model="searchQuery"
-              placeholder="输入关键字搜索"
-              allow-clear
-              class="search-input"
-              @input="handleSearch"
-            />
+            <a-input-search v-model="searchQuery" placeholder="输入关键字搜索" allow-clear class="search-input"
+              @input="handleSearch" />
             <a-button type="primary" @click="handleCreate" class="add-btn">
-              <template #icon><IconPlus /></template>
+              <template #icon>
+                <IconPlus />
+              </template>
               新增记录
             </a-button>
           </div>
@@ -22,16 +19,8 @@
       </template>
 
       <!-- Upgraded Table content inside the layout -->
-      <a-table
-        :loading="loading"
-        :data="filteredTableData"
-        row-key="id"
-        :columns="columns"
-        v-model:expanded-keys="expandedKeys"
-        :pagination="false"
-        :bordered="false"
-        class="menu-table"
-      >
+      <a-table :loading="loading" :data="filteredTableData" row-key="id" :columns="columns"
+        v-model:expanded-keys="expandedKeys" :pagination="false" :bordered="false" class="menu-table">
         <!-- Custom expand icon: Clean caret arrow instead of gray square +/- box -->
         <template #expand-icon="{ expanded }">
           <IconDown v-if="expanded" style="font-size: 12px; color: #4E5969;" />
@@ -40,7 +29,8 @@
         <!-- Custom menu icon render -->
         <template #icon="{ record }">
           <div class="icon-wrap-inner">
-            <component :is="getIconComponent(record.icon)" v-if="record.icon && record.icon !== '#'" class="menu-icon" />
+            <component :is="getIconComponent(record.icon)" v-if="record.icon && record.icon !== '#'"
+              class="menu-icon" />
             <span v-else class="text-secondary">-</span>
           </div>
         </template>
@@ -70,7 +60,7 @@
         <!-- Styled Status tag -->
         <template #status="{ record }">
           <a-tag :color="record.status === '0' ? 'green' : 'red'" size="small">
-            {{ record.status === '0' ? '正常' : '停用' }}
+            {{ dictStore.getDictLabel('general_status', record.status) }}
           </a-tag>
         </template>
 
@@ -88,24 +78,13 @@
     </a-card>
 
     <!-- Menu Create/Edit Dialog -->
-    <a-modal
-      v-model:visible="dialogVisible"
-      :title="dialogType === 'create' ? '新增菜单' : '编辑菜单'"
-      width="600px"
-      @before-ok="submitForm"
-      :mask-closable="false"
-      align-center
-    >
+    <a-modal v-model:visible="dialogVisible" :title="dialogType === 'create' ? '新增菜单' : '编辑菜单'" width="600px"
+      @before-ok="submitForm" :mask-closable="false" align-center>
       <a-form :model="menuForm" :rules="formRules" ref="menuFormRef" layout="vertical">
         <a-form-item field="parent_id" label="上级菜单">
-          <a-tree-select
-            v-model="menuForm.parent_id"
-            :data="treeSelectData"
-            :fieldNames="{ key: 'id', title: 'menu_name', children: 'children' }"
-            placeholder="选择上级菜单 (不选默认为顶级目录)"
-            allow-clear
-            class="full-width"
-          />
+          <a-tree-select v-model="menuForm.parent_id" :data="treeSelectData"
+            :fieldNames="{ key: 'id', title: 'menu_name', children: 'children' }" placeholder="选择上级菜单 (不选默认为顶级目录)"
+            allow-clear class="full-width" />
         </a-form-item>
 
         <a-form-item field="menu_type" label="菜单类型">
@@ -180,12 +159,14 @@ import { Message, Modal } from '@arco-design/web-vue'
 import type { TableColumnData } from '@arco-design/web-vue'
 import { IconPlus, IconDown, IconRight } from '@arco-design/web-vue/es/icon'
 import * as ArcoIcons from '@arco-design/web-vue/es/icon'
-import request from '../../../utils/request'
+import { getMenuTree, getMenuList, createMenu, updateMenu, deleteMenu } from '../../../api/menu'
+import { useDictStore } from '../../../store/dict'
 import { deepClone, listToTree } from '../../../utils'
 
 const loading = ref(false)
 const tableData = ref<any[]>([])
 const treeSelectData = ref<any[]>([])
+const dictStore = useDictStore()
 const searchQuery = ref('')
 const dialogVisible = ref(false)
 const dialogType = ref<'create' | 'update'>('create')
@@ -275,7 +256,7 @@ const filteredTableData = computed(() => {
   const filterNode = (nodes: any[]): any[] => {
     return nodes
       .map(node => {
-        const matched = !query || 
+        const matched = !query ||
           node.menu_name.toLowerCase().includes(query) ||
           (node.perms && node.perms.toLowerCase().includes(query)) ||
           (node.path && node.path.toLowerCase().includes(query))
@@ -321,7 +302,7 @@ function cleanEmptyChildren(nodes: any[]): any[] {
 async function getList() {
   loading.value = true
   try {
-    const res: any = await request.get('/menu/tree')
+    const res: any = await getMenuTree()
     const cleaned = cleanEmptyChildren(res || [])
     tableData.value = cleaned
 
@@ -339,7 +320,7 @@ async function getList() {
     expandedKeys.value = keys
 
     // Construct tree options for parent menu selection (excluding buttons)
-    const rawMenus: any = await request.get('/menu/')
+    const rawMenus: any = await getMenuList()
     const menuOptions = (rawMenus || []).filter((item: any) => item.menu_type !== 'F')
     treeSelectData.value = [
       { id: 0, menu_name: '主类目', children: listToTree(menuOptions) }
@@ -400,7 +381,7 @@ async function submitForm(done: any) {
   if (validationRes) {
     return done(false)
   }
-  
+
   try {
     const payload = { ...menuForm }
     if (!payload.parent_id) {
@@ -408,10 +389,10 @@ async function submitForm(done: any) {
     }
 
     if (dialogType.value === 'create') {
-      await request.post('/menu/', payload)
+      await createMenu(payload)
       Message.success('新增菜单成功')
     } else {
-      await request.put(`/menu/${payload.id}`, payload)
+      await updateMenu(payload.id!, payload)
       Message.success('修改菜单成功')
     }
     getList()
@@ -424,13 +405,18 @@ async function submitForm(done: any) {
 
 async function handleDelete(row: any) {
   Modal.confirm({
-    title: '警告',
-    content: `确认删除菜单 "${row.menu_name}" 吗？`,
+    title: '确认删除',
+    titleAlign: 'start',
+    content: `您确定要删除菜单 "${row.menu_name}" 吗？该操作不可撤销。`,
     okText: '确定',
     cancelText: '取消',
+    simple: false,
+    okButtonProps: {
+      status: 'danger'
+    },
     async onOk() {
       try {
-        await request.delete(`/menu/${row.id}`)
+        await deleteMenu(row.id)
         Message.success('删除成功')
         getList()
       } catch (err) {
@@ -442,6 +428,7 @@ async function handleDelete(row: any) {
 
 onMounted(() => {
   getList()
+  dictStore.loadDict('general_status')
 })
 </script>
 

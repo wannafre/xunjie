@@ -168,12 +168,11 @@ async def delete_dict_data_endpoint(
         )
     return None
 
-# Public/Helper: Get Dict Data by Type (without specific dict:list permission, just authenticated user)
+# Public/Helper: Get Dict Data by Type (without specific dict:list permission or token login validation)
 @router.get("/data/type/{dict_type}", response_model=List[DictDataOut])
 async def get_dict_data_by_type_endpoint(
     dict_type: str,
-    db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Get active dictionary data options by type for UI inputs.

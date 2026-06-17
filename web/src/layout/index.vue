@@ -40,6 +40,7 @@
 
           <!-- Single Menu Item -->
           <a-menu-item v-else :key="resolvePath(menu.path)">
+            <!-- prettier-ignore -->
             <template #[getMenuIcon(menu)?'icon':'_none']>
               <component :is="getMenuIcon(menu)" />
             </template>
@@ -114,9 +115,7 @@
       </a-layout-content>
 
       <!-- Footer -->
-      <div class="app-footer">
-        {{ settings.title }} {{ settings.version }}
-      </div>
+
     </a-layout>
   </a-layout>
 </template>
@@ -126,7 +125,7 @@ import { ref, computed, onMounted } from 'vue'
 import { settings } from '../config/settings'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '../store/user'
-import request from '../utils/request'
+import { getMenuTree } from '../api/menu'
 import { Message } from '@arco-design/web-vue'
 import {
   IconHome, IconUser, IconNotification, IconDown, IconExport
@@ -188,7 +187,7 @@ function resolvePath(path: string) {
 // Fetch dynamic menus from server
 async function fetchMenus() {
   try {
-    const res: any = await request.get('/menu/tree')
+    const res: any = await getMenuTree()
     menuList.value = res || []
   } catch (err) {
     console.error('Failed to load menus', err)

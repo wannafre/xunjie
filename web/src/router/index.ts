@@ -1,8 +1,8 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import { useUserStore } from '../store/user'
-import request from '../utils/request'
 import { settings } from '../config/settings'
+import { getMenuList } from '../api/menu'
 
 // Glob view files for dynamic imports
 const modules = import.meta.glob('../views/**/*.vue')
@@ -78,7 +78,7 @@ function loadComponent(componentPath: string | null, path: string) {
 // Dynamic route generation by fetching database menus
 async function generateDynamicRoutes() {
   try {
-    const menus: any = await request.get('/menu/')
+    const menus: any = await getMenuList()
     if (Array.isArray(menus)) {
       menus.forEach((item: any) => {
         // Register route component for Menu Type "C"

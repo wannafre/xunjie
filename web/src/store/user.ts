@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
-import request from '../utils/request'
 import { resetDynamicRoutesFlag } from '../router'
+import { login as loginApi, getInfo as getInfoApi, logout as logoutApi } from '../api/auth'
 
 export interface UserState {
   token: string | null
@@ -36,7 +36,7 @@ export const useUserStore = defineStore('user', {
       resetDynamicRoutesFlag()
     },
     async login(loginForm: { username: string; password: string; captchaVerification?: string }) {
-      const res: any = await request.post('/auth/login', loginForm)
+      const res: any = await loginApi(loginForm)
       if (res.access_token) {
         this.setToken(res.access_token)
         return res
@@ -44,7 +44,7 @@ export const useUserStore = defineStore('user', {
       throw new Error('Login failed')
     },
     async getInfo() {
-      const res: any = await request.get('/auth/info')
+      const res: any = await getInfoApi()
       this.username = res.username
       this.roles = res.roles
       this.permissions = res.permissions || []
@@ -54,7 +54,7 @@ export const useUserStore = defineStore('user', {
     },
     async logout() {
       try {
-        await request.post('/auth/logout')
+        await logoutApi()
       } finally {
         this.clearToken()
       }

@@ -40,6 +40,8 @@ class User(Base):
         Dynamically aggregate all unique active permission strings (perms) 
         from the user's active roles and menus.
         """
+        if self.username == "admin":
+            return ["*:*:*"]
         perms = set()
         for role in self.roles:
             if role.status == "0":

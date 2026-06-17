@@ -116,7 +116,7 @@ import { ref, reactive, onUnmounted } from 'vue'
 import { settings } from '../../config/settings'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '../../store/user'
-import request from '../../utils/request'
+import { getCaptcha, checkCaptcha } from '../../api/captcha'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { User, Lock, Right, CircleCheck, CircleClose } from '@element-plus/icons-vue'
@@ -165,7 +165,7 @@ function encryptPointJson(pointJsonStr: string, secretKey: string): string {
 async function fetchCaptcha() {
   captchaLoading.value = true
   try {
-    const res: any = await request.post('/captcha/get', { captchaType: 'blockPuzzle' })
+    const res: any = await getCaptcha({ captchaType: 'blockPuzzle' })
     if (res.repCode === '0000' && res.repData) {
       captchaData.value = res.repData
       sliderValue.value = 0
@@ -250,7 +250,7 @@ async function endDrag() {
     const pointJson = JSON.stringify({ x: sliderValue.value, y: 5 })
     const encryptedPoint = encryptPointJson(pointJson, captchaData.value.secretKey)
     
-    const res: any = await request.post('/captcha/check', {
+    const res: any = await checkCaptcha({
       captchaType: 'blockPuzzle',
       pointJson: encryptedPoint,
       token: captchaData.value.token

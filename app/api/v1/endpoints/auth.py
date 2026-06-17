@@ -71,6 +71,8 @@ def check_permissions(required_perm: str):
     FastAPI dependency to check if the current user has the specified permission.
     """
     async def dependency(current_user: Any = Depends(get_current_user)) -> Any:
+        if current_user.username == "admin":
+            return current_user
         if required_perm not in current_user.permissions:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -142,6 +144,12 @@ async def login(
     # 认证成功，重置失败次数计数器
     captcha_manager.reset_fail(username)
     captcha_manager.reset_fail(ip)
+    
+    # 更新最后登录时间和最后登录IP
+    user.login_date = datetime.utcnow() + timedelta(hours=8)
+    user.login_ip = ip
+    db.add(user)
+    await db.commit()
     
     access_token = create_access_token(data={"sub": user.username})
     return {"access_token": access_token, "token_type": "bearer"}
