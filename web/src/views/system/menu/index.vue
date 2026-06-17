@@ -1,185 +1,210 @@
 <template>
   <div class="menu-container">
-    <el-card class="box-card">
-      <template #header>
+    <a-card class="box-card" :bordered="false">
+      <!-- Reverted Card Header strictly to the original title and layout -->
+      <template #title>
         <div class="card-header">
           <span class="title">菜单管理</span>
           <div class="header-actions">
-            <el-input
+            <a-input-search
               v-model="searchQuery"
               placeholder="输入关键字搜索"
-              clearable
-              :prefix-icon="Search"
+              allow-clear
               class="search-input"
               @input="handleSearch"
             />
-            <el-button type="primary" :icon="Plus" @click="handleCreate" class="add-btn">
+            <a-button type="primary" @click="handleCreate" class="add-btn">
+              <template #icon><IconPlus /></template>
               新增记录
-            </el-button>
+            </a-button>
           </div>
         </div>
       </template>
 
-      <!-- Menu Table (Supports tree grid) -->
-      <el-table
-        v-loading="loading"
+      <!-- Upgraded Table content inside the layout -->
+      <a-table
+        :loading="loading"
         :data="filteredTableData"
         row-key="id"
-        border
-        default-expand-all
-        :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
+        :columns="columns"
+        v-model:expanded-keys="expandedKeys"
+        :pagination="false"
+        :bordered="false"
         class="menu-table"
       >
-        <el-table-column prop="menu_name" label="菜单名称" min-width="180" />
-        <el-table-column prop="icon" label="图标" width="80" align="center">
-          <template #default="scope">
-            <el-icon v-if="scope.row.icon && scope.row.icon !== '#'"><component :is="getIconComponent(scope.row.icon)" /></el-icon>
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="order_num" label="排序" width="80" align="center" />
-        <el-table-column prop="perms" label="权限标识" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="path" label="路由地址" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="component" label="组件路径" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="menu_type" label="类型" width="90" align="center">
-          <template #default="scope">
-            <el-tag :type="getTypeTag(scope.row.menu_type)" size="small">
-              {{ getTypeLabel(scope.row.menu_type) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="status" label="状态" width="80" align="center">
-          <template #default="scope">
-            <el-tag :type="scope.row.status === '0' ? 'success' : 'danger'" size="small">
-              {{ scope.row.status === '0' ? '正常' : '停用' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="160" align="center" fixed="right">
-          <template #default="scope">
-            <el-button link type="primary" size="small" @click="handleUpdate(scope.row)">
-              编辑
-            </el-button>
-            <el-button link type="danger" size="small" @click="handleDelete(scope.row)">
-              删除
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+        <!-- Custom expand icon: Clean caret arrow instead of gray square +/- box -->
+        <template #expand-icon="{ expanded }">
+          <IconDown v-if="expanded" style="font-size: 12px; color: #4E5969;" />
+          <IconRight v-else style="font-size: 12px; color: #4E5969;" />
+        </template>
+        <!-- Custom menu icon render -->
+        <template #icon="{ record }">
+          <div class="icon-wrap-inner">
+            <component :is="getIconComponent(record.icon)" v-if="record.icon && record.icon !== '#'" class="menu-icon" />
+            <span v-else class="text-secondary">-</span>
+          </div>
+        </template>
+
+        <!-- Custom combined path info column -->
+        <template #path_info="{ record }">
+          <div v-if="record.menu_type !== 'F'" class="path-details">
+            <div class="path-row font-mono">{{ record.path || '-' }}</div>
+            <div class="component-row font-mono" v-if="record.component">{{ record.component }}</div>
+          </div>
+          <span v-else class="text-secondary font-mono">-</span>
+        </template>
+
+        <!-- Styled Permission string -->
+        <template #perms="{ record }">
+          <span v-if="record.perms" class="permission-badge font-mono">{{ record.perms }}</span>
+          <span v-else class="text-secondary font-mono">-</span>
+        </template>
+
+        <!-- Styled Menu Type tag -->
+        <template #menu_type="{ record }">
+          <a-tag :color="getTypeTagColor(record.menu_type)" size="small" class="custom-type-tag">
+            {{ getTypeLabel(record.menu_type) }}
+          </a-tag>
+        </template>
+
+        <!-- Styled Status tag -->
+        <template #status="{ record }">
+          <a-tag :color="record.status === '0' ? 'green' : 'red'" size="small">
+            {{ record.status === '0' ? '正常' : '停用' }}
+          </a-tag>
+        </template>
+
+        <!-- Operational actions with 'Add Child' shortcut -->
+        <template #optional="{ record }">
+          <div class="table-actions">
+            <a-link type="primary" @click="handleUpdate(record)">编辑</a-link>
+            <a-link type="primary" status="success" @click="handleCreateChild(record)" v-if="record.menu_type !== 'F'">
+              新增下级
+            </a-link>
+            <a-link status="danger" @click="handleDelete(record)">删除</a-link>
+          </div>
+        </template>
+      </a-table>
+    </a-card>
 
     <!-- Menu Create/Edit Dialog -->
-    <el-dialog
-      v-model="dialogVisible"
+    <a-modal
+      v-model:visible="dialogVisible"
       :title="dialogType === 'create' ? '新增菜单' : '编辑菜单'"
       width="600px"
+      @before-ok="submitForm"
+      :mask-closable="false"
       align-center
     >
-      <el-form :model="menuForm" :rules="formRules" ref="menuFormRef" label-width="100px">
-        <el-form-item label="上级菜单">
-          <el-tree-select
+      <a-form :model="menuForm" :rules="formRules" ref="menuFormRef" layout="vertical">
+        <a-form-item field="parent_id" label="上级菜单">
+          <a-tree-select
             v-model="menuForm.parent_id"
             :data="treeSelectData"
-            :props="{ label: 'menu_name', value: 'id', children: 'children' }"
+            :fieldNames="{ key: 'id', title: 'menu_name', children: 'children' }"
             placeholder="选择上级菜单 (不选默认为顶级目录)"
-            check-strictly
-            clearable
+            allow-clear
             class="full-width"
           />
-        </el-form-item>
+        </a-form-item>
 
-        <el-form-item label="菜单类型" prop="menu_type">
-          <el-radio-group v-model="menuForm.menu_type">
-            <el-radio value="M">目录</el-radio>
-            <el-radio value="C">菜单</el-radio>
-            <el-radio value="F">按钮/接口</el-radio>
-          </el-radio-group>
-        </el-form-item>
+        <a-form-item field="menu_type" label="菜单类型">
+          <a-radio-group v-model="menuForm.menu_type" type="button">
+            <a-radio value="M">目录</a-radio>
+            <a-radio value="C">菜单</a-radio>
+            <a-radio value="F">按钮/接口</a-radio>
+          </a-radio-group>
+        </a-form-item>
 
-        <el-form-item label="菜单名称" prop="menu_name">
-          <el-input v-model="menuForm.menu_name" placeholder="请输入菜单名称" />
-        </el-form-item>
+        <a-form-item field="menu_name" label="菜单名称" required>
+          <a-input v-model="menuForm.menu_name" placeholder="请输入菜单名称" />
+        </a-form-item>
 
-        <el-form-item label="显示顺序" prop="order_num">
-          <el-input-number v-model="menuForm.order_num" :min="0" class="full-width" />
-        </el-form-item>
+        <a-form-item field="order_num" label="显示顺序">
+          <a-input-number v-model="menuForm.order_num" :min="0" class="full-width" />
+        </a-form-item>
 
-        <el-form-item label="菜单图标" v-if="menuForm.menu_type !== 'F'">
-          <el-select v-model="menuForm.icon" placeholder="请选择菜单图标" clearable filterable class="full-width">
-            <el-option
-              v-for="item in iconOptions"
-              :key="item"
-              :label="item"
-              :value="item"
-            >
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <el-icon><component :is="getIconComponent(item)" /></el-icon>
-                <span>{{ item }}</span>
+        <a-form-item field="icon" label="菜单图标" v-if="menuForm.menu_type !== 'F'">
+          <a-select v-model="menuForm.icon" placeholder="请选择菜单图标" allow-clear allow-search class="full-width">
+            <a-option v-for="item in iconOptions" :key="item" :value="item">
+              <div style="display: flex; align-items: center; gap: 8px; font-size: 18px;">
+                <component :is="getIconComponent(item)" />
+                <span style="font-size: 14px;">{{ item }}</span>
               </div>
-            </el-option>
-          </el-select>
-        </el-form-item>
+            </a-option>
+          </a-select>
+        </a-form-item>
 
-        <el-form-item label="路由地址" prop="path" v-if="menuForm.menu_type !== 'F'">
-          <el-input v-model="menuForm.path" placeholder="请输入路由地址" />
-        </el-form-item>
+        <a-form-item field="path" label="路由地址" v-if="menuForm.menu_type !== 'F'">
+          <a-input v-model="menuForm.path" placeholder="请输入路由地址 (如: /system/user)" />
+        </a-form-item>
 
-        <el-form-item label="组件路径" prop="component" v-if="menuForm.menu_type === 'C'">
-          <el-input v-model="menuForm.component" placeholder="请输入组件路径 (如: system/user/index)" />
-        </el-form-item>
+        <a-form-item field="component" label="组件路径" v-if="menuForm.menu_type === 'C'">
+          <a-input v-model="menuForm.component" placeholder="请输入组件路径 (如: system/user/index)" />
+        </a-form-item>
 
-        <el-form-item label="权限标识" prop="perms">
-          <el-input v-model="menuForm.perms" placeholder="请输入权限标识 (如: system:user:list)" />
-        </el-form-item>
+        <a-form-item field="perms" label="权限标识">
+          <a-input v-model="menuForm.perms" placeholder="请输入权限标识 (如: system:user:list)" />
+        </a-form-item>
 
-        <el-form-item label="显示状态" v-if="menuForm.menu_type !== 'F'">
-          <el-radio-group v-model="menuForm.visible">
-            <el-radio value="0">显示</el-radio>
-            <el-radio value="1">隐藏</el-radio>
-          </el-radio-group>
-        </el-form-item>
+        <a-row :gutter="16">
+          <a-col :span="12" v-if="menuForm.menu_type !== 'F'">
+            <a-form-item field="visible" label="显示状态">
+              <a-radio-group v-model="menuForm.visible">
+                <a-radio value="0">显示</a-radio>
+                <a-radio value="1">隐藏</a-radio>
+              </a-radio-group>
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item field="status" label="菜单状态">
+              <a-radio-group v-model="menuForm.status">
+                <a-radio value="0">正常</a-radio>
+                <a-radio value="1">停用</a-radio>
+              </a-radio-group>
+            </a-form-item>
+          </a-col>
+        </a-row>
 
-        <el-form-item label="菜单状态">
-          <el-radio-group v-model="menuForm.status">
-            <el-radio value="0">正常</el-radio>
-            <el-radio value="1">停用</el-radio>
-          </el-radio-group>
-        </el-form-item>
-
-        <el-form-item label="备注">
-          <el-input v-model="menuForm.remark" type="textarea" placeholder="请输入备注信息" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" :loading="submitLoading" @click="submitForm">确定</el-button>
-        </span>
-      </template>
-    </el-dialog>
+        <a-form-item field="remark" label="备注">
+          <a-textarea v-model="menuForm.remark" placeholder="请输入备注信息" />
+        </a-form-item>
+      </a-form>
+    </a-modal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import type { FormInstance, FormRules } from 'element-plus'
-import { Plus, Search } from '@element-plus/icons-vue'
-import * as ElementPlusIcons from '@element-plus/icons-vue'
+import { Message, Modal } from '@arco-design/web-vue'
+import type { TableColumnData } from '@arco-design/web-vue'
+import { IconPlus, IconDown, IconRight } from '@arco-design/web-vue/es/icon'
+import * as ArcoIcons from '@arco-design/web-vue/es/icon'
 import request from '../../../utils/request'
 import { deepClone, listToTree } from '../../../utils'
 
 const loading = ref(false)
-const submitLoading = ref(false)
 const tableData = ref<any[]>([])
 const treeSelectData = ref<any[]>([])
 const searchQuery = ref('')
 const dialogVisible = ref(false)
 const dialogType = ref<'create' | 'update'>('create')
-const menuFormRef = ref<FormInstance>()
+const menuFormRef = ref()
+const expandedKeys = ref<any[]>([])
+
+const columns: TableColumnData[] = [
+  { title: '菜单名称', dataIndex: 'menu_name', width: 220 },
+  { title: '图标', dataIndex: 'icon', slotName: 'icon', align: 'center', width: 70 },
+  { title: '类型', dataIndex: 'menu_type', slotName: 'menu_type', align: 'center', width: 90 },
+  { title: '路由/组件路径', slotName: 'path_info', width: 240 },
+  { title: '权限标识', slotName: 'perms', width: 180 },
+  { title: '排序', dataIndex: 'order_num', align: 'center', width: 70 },
+  { title: '状态', dataIndex: 'status', slotName: 'status', align: 'center', width: 90 },
+  { title: '操作', slotName: 'optional', align: 'left', width: 200 }
+]
 
 const iconOptions = ref([
-  'Setting', 'User', 'Avatar', 'List', 'Key', 'Notebook', 'Folder', 'Document', 
+  'Setting', 'User', 'Avatar', 'List', 'Key', 'Notebook', 'Folder', 'Document',
   'Odometer', 'Monitor', 'Bell', 'Search', 'Plus', 'Edit', 'Delete', 'Operation',
   'Grid', 'Menu', 'Location', 'Cpu'
 ])
@@ -199,14 +224,36 @@ const menuForm = reactive({
   remark: ''
 })
 
-const formRules = reactive<FormRules>({
-  menu_name: [{ required: true, message: '菜单名称不能为空', trigger: 'blur' }],
-  menu_type: [{ required: true, message: '菜单类型不能为空', trigger: 'change' }]
-})
+const formRules = {
+  menu_name: [{ required: true, message: '菜单名称不能为空' }],
+  menu_type: [{ required: true, message: '菜单类型不能为空' }]
+}
 
-// Resolve Element Plus Icon component dynamically
+// Resolve dynamic icon components from Arco icons
 function getIconComponent(iconName: string) {
-  return (ElementPlusIcons as any)[iconName] || null
+  if (!iconName || iconName === '#') return null
+  const iconMap: any = {
+    'Setting': 'IconSettings',
+    'Settings': 'IconSettings',
+    'User': 'IconUser',
+    'Avatar': 'IconUser',
+    'List': 'IconMenu',
+    'Key': 'IconLock',
+    'Notebook': 'IconBook',
+    'Folder': 'IconFolder',
+    'Document': 'IconFile',
+    'Odometer': 'IconDashboard',
+    'Monitor': 'IconDesktop',
+    'Bell': 'IconNotification',
+    'Search': 'IconSearch',
+    'Plus': 'IconPlus',
+    'Location': 'IconLocation',
+    'Cpu': 'IconCpu',
+    'Apps': 'IconApps'
+  }
+  const mapped = iconMap[iconName] || iconName
+  const componentName = mapped.startsWith('Icon') ? mapped : 'Icon' + mapped.charAt(0).toUpperCase() + mapped.slice(1)
+  return (ArcoIcons as any)[componentName] || ArcoIcons.IconFile
 }
 
 const getTypeLabel = (type: string) => {
@@ -215,47 +262,82 @@ const getTypeLabel = (type: string) => {
   return '按钮/接口'
 }
 
-const getTypeTag = (type: string) => {
-  if (type === 'M') return 'primary'
-  if (type === 'C') return 'success'
-  return 'warning'
+const getTypeTagColor = (type: string) => {
+  if (type === 'M') return 'arcoblue'
+  if (type === 'C') return 'green'
+  return 'purple'
 }
 
 // Flat search logic matching keywords in menu names
 const filteredTableData = computed(() => {
-  if (!searchQuery.value) return tableData.value
-  const query = searchQuery.value.toLowerCase()
-  
+  const query = searchQuery.value.toLowerCase().trim()
+
   const filterNode = (nodes: any[]): any[] => {
     return nodes
       .map(node => {
-        const matched = node.menu_name.toLowerCase().includes(query) || 
-                        (node.perms && node.perms.toLowerCase().includes(query)) ||
-                        (node.path && node.path.toLowerCase().includes(query))
-        
+        const matched = !query || 
+          node.menu_name.toLowerCase().includes(query) ||
+          (node.perms && node.perms.toLowerCase().includes(query)) ||
+          (node.path && node.path.toLowerCase().includes(query))
+
         let children: any[] = []
         if (node.children && node.children.length > 0) {
           children = filterNode(node.children)
         }
-        
+
         if (matched || children.length > 0) {
-          return { ...node, children }
+          const result = { ...node }
+          if (children.length > 0) {
+            result.children = children
+          } else {
+            delete result.children
+          }
+          return result
         }
         return null
       })
       .filter((n): n is any => n !== null)
   }
-  
+
   return filterNode(tableData.value)
 })
+
+// Helper function to remove empty children lists recursively
+function cleanEmptyChildren(nodes: any[]): any[] {
+  return nodes.map(node => {
+    const cleaned = { ...node }
+    if (cleaned.children) {
+      if (cleaned.children.length === 0) {
+        delete cleaned.children
+      } else {
+        cleaned.children = cleanEmptyChildren(cleaned.children)
+      }
+    }
+    return cleaned
+  })
+}
 
 // Fetch all menus from database
 async function getList() {
   loading.value = true
   try {
     const res: any = await request.get('/menu/tree')
-    tableData.value = res || []
-    
+    const cleaned = cleanEmptyChildren(res || [])
+    tableData.value = cleaned
+
+    // Expand all parent nodes by default programmatically
+    const keys: any[] = []
+    const traverse = (list: any[]) => {
+      list.forEach(item => {
+        if (item.children && item.children.length > 0) {
+          keys.push(item.id)
+          traverse(item.children)
+        }
+      })
+    }
+    traverse(cleaned)
+    expandedKeys.value = keys
+
     // Construct tree options for parent menu selection (excluding buttons)
     const rawMenus: any = await request.get('/menu/')
     const menuOptions = (rawMenus || []).filter((item: any) => item.menu_type !== 'F')
@@ -296,60 +378,66 @@ function handleCreate() {
   dialogVisible.value = true
 }
 
+function handleCreateChild(row: any) {
+  resetForm()
+  menuForm.parent_id = row.id
+  menuForm.menu_type = row.menu_type === 'M' ? 'C' : 'F'
+  dialogType.value = 'create'
+  dialogVisible.value = true
+}
+
 function handleUpdate(row: any) {
   resetForm()
   Object.assign(menuForm, deepClone(row))
-  // parent_id should be integer
   menuForm.parent_id = Number(menuForm.parent_id) || 0
   dialogType.value = 'update'
   dialogVisible.value = true
 }
 
-async function submitForm() {
-  if (!menuFormRef.value) return
-  await menuFormRef.value.validate(async (valid) => {
-    if (valid) {
-      submitLoading.value = true
-      try {
-        const payload = { ...menuForm }
-        if (!payload.parent_id) {
-          payload.parent_id = 0
-        }
-        
-        if (dialogType.value === 'create') {
-          await request.post('/menu/', payload)
-          ElMessage.success('新增菜单成功')
-        } else {
-          await request.put(`/menu/${payload.id}`, payload)
-          ElMessage.success('修改菜单成功')
-        }
-        dialogVisible.value = false
-        getList()
-      } catch (err) {
-        console.error(err)
-      } finally {
-        submitLoading.value = false
-      }
+async function submitForm(done: any) {
+  if (!menuFormRef.value) return done(true)
+  const validationRes = await menuFormRef.value.validate()
+  if (validationRes) {
+    return done(false)
+  }
+  
+  try {
+    const payload = { ...menuForm }
+    if (!payload.parent_id) {
+      payload.parent_id = 0
     }
-  })
+
+    if (dialogType.value === 'create') {
+      await request.post('/menu/', payload)
+      Message.success('新增菜单成功')
+    } else {
+      await request.put(`/menu/${payload.id}`, payload)
+      Message.success('修改菜单成功')
+    }
+    getList()
+    done(true)
+  } catch (err) {
+    console.error(err)
+    done(false)
+  }
 }
 
 async function handleDelete(row: any) {
-  try {
-    await ElMessageBox.confirm(`确认删除菜单 "${row.menu_name}" 吗？`, '警告', {
-      type: 'warning',
-      confirmButtonText: '确定',
-      cancelButtonText: '取消'
-    })
-    
-    await request.delete(`/menu/${row.id}`)
-    ElMessage.success('删除成功')
-    getList()
-  } catch (err) {
-    if (err !== 'cancel') {
-      console.error(err)
+  Modal.confirm({
+    title: '警告',
+    content: `确认删除菜单 "${row.menu_name}" 吗？`,
+    okText: '确定',
+    cancelText: '取消',
+    async onOk() {
+      try {
+        await request.delete(`/menu/${row.id}`)
+        Message.success('删除成功')
+        getList()
+      } catch (err) {
+        console.error(err)
+      }
     }
-  }
+  })
 }
 
 onMounted(() => {
@@ -363,21 +451,23 @@ onMounted(() => {
 }
 
 .box-card {
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.02) !important;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid #E5E6EB;
+  background: #FFFFFF;
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  width: 100%;
 }
 
 .title {
-  font-size: 18px;
-  font-weight: 600;
-  color: #1e293b;
+  font-size: 16px;
+  font-weight: 500;
+  color: #1D2129;
 }
 
 .header-actions {
@@ -390,48 +480,72 @@ onMounted(() => {
   width: 240px;
 }
 
-:deep(.el-input__wrapper) {
-  border-radius: 8px;
-  background-color: #f8fafc;
-  border: 1px solid #cbd5e1;
-  box-shadow: none !important;
-  transition: all 0.2s;
-}
-
-:deep(.el-input__wrapper.is-focus) {
-  background-color: #ffffff;
-  border-color: #1890ff;
-}
-
-.add-btn {
-  border-radius: 8px;
-  background-color: #1890ff;
-  border: none;
-  font-weight: 500;
-  box-shadow: 0 4px 6px rgba(24, 144, 255, 0.2);
-}
-
-.add-btn:hover {
-  background-color: #40a9ff;
-}
-
+/* Custom table overrides */
 .menu-table {
   margin-top: 10px;
-  border-radius: 8px;
-  overflow: hidden;
+}
+
+.icon-wrap-inner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background-color: #F2F3F5;
+  border-radius: 4px;
+}
+
+.menu-icon {
+  font-size: 18px;
+  color: #4E5969;
+}
+
+.path-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.path-row {
+  font-size: 13px;
+  color: #1D2129;
+  word-break: break-all;
+}
+
+.component-row {
+  font-size: 11px;
+  color: #86909C;
+  margin-top: 2px;
+  word-break: break-all;
+}
+
+.permission-badge {
+  font-size: 11px;
+  color: #165DFF;
+  background-color: #E8F1FF;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #B3D4FF;
+  word-break: break-all;
+  display: inline-block;
+}
+
+.font-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.custom-type-tag {
+  font-weight: 500;
+  border-radius: 4px;
+}
+
+.table-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-start;
+  align-items: center;
 }
 
 .full-width {
   width: 100%;
-}
-
-:deep(.el-table th) {
-  background-color: #f8fafc !important;
-  color: #475569;
-  font-weight: 600;
-}
-
-:deep(.el-dialog) {
-  border-radius: 16px;
 }
 </style>

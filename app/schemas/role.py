@@ -8,12 +8,13 @@ class RoleBase(BaseModel):
     status: Optional[str] = Field(default="0", description="角色状态（0正常 1停用）")
 
 class RoleCreate(RoleBase):
-    pass
+    menu_ids: Optional[List[int]] = Field(default=[], description="绑定的菜单 ID 列表")
 
 class RoleUpdate(BaseModel):
     role_name: Optional[str] = None
     role_key: Optional[str] = None
     status: Optional[str] = None
+    menu_ids: Optional[List[int]] = None
 
 class RoleOut(RoleBase):
     id: int

@@ -16,8 +16,8 @@
             <path fill="currentColor" d="M11 7h2v5h-2zm0 6h2v2h-2z"/>
           </svg>
         </div>
-        <h1 class="brand-title">轨道交通安全监测系统</h1>
-        <p class="brand-subtitle">Rail Transit Safety Monitoring System</p>
+        <h1 class="brand-title">{{ settings.titleSuffix }}</h1>
+        <p class="brand-subtitle">{{ settings.subtitleEnglish }}</p>
       </div>
 
       <el-form :model="loginForm" :rules="rules" ref="loginFormRef" @keyup.enter="handleLogin" label-position="top">
@@ -113,6 +113,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onUnmounted } from 'vue'
+import { settings } from '../../config/settings'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '../../store/user'
 import request from '../../utils/request'

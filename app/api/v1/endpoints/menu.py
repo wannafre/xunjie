@@ -58,7 +58,7 @@ def build_tree(menus: list) -> List[MenuTree]:
 async def create_menu_endpoint(
     menu_in: MenuCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: str = Depends(check_permissions("sys::menu::add"))
+    current_user: str = Depends(check_permissions("system:menu:add"))
 ):
     """
     Create a new menu.
@@ -108,7 +108,7 @@ async def update_menu_endpoint(
     menu_id: int,
     menu_in: MenuUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: str = Depends(check_permissions("sys::menu::update"))
+    current_user: str = Depends(check_permissions("system:menu:edit"))
 ):
     """
     Update a menu.
@@ -125,7 +125,7 @@ async def update_menu_endpoint(
 async def delete_menu_endpoint(
     menu_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: str = Depends(check_permissions("sys::menu::delete"))
+    current_user: str = Depends(check_permissions("system:menu:remove"))
 ):
     """
     Delete a menu.

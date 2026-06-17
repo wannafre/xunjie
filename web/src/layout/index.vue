@@ -1,95 +1,68 @@
 <template>
-  <el-container class="app-wrapper">
+  <a-layout class="layout-container">
     <!-- Light-themed Premium Sidebar with Collapse state -->
-    <el-aside :width="isCollapse ? '64px' : '256px'" class="sidebar-container">
-      <div class="logo-container">
-        <!-- Logo shield matching screenshot -->
-        <div class="logo-icon-box">
-          <svg viewBox="0 0 24 24" width="20" height="20" class="logo-shield">
-            <path fill="currentColor" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-            <path fill="white" d="M12 4.3l5.5 2.1v4.8c0 4-4.2 7.1-5.5 8.1-1.3-1-5.5-4.1-5.5-8.1V6.4L12 4.3z"/>
-            <path fill="currentColor" d="M11 7h2v5h-2zm0 6h2v2h-2z"/>
-          </svg>
+    <a-layout-sider :collapsible="true" :trigger="null" hide-trigger :width="256" v-model:collapsed="isCollapse"
+      class="sidebar-container">
+      <div class="sidebar-logo-wrap">
+        <!-- Logo shield matching reference -->
+        <div class="sidebar-logo-icon">
+          <component :is="settings.logoComponent" style="font-size: 20px;" />
         </div>
-        <span class="logo-text" v-if="!isCollapse">安全监测系统</span>
+        <span class="sidebar-logo-text" v-if="!isCollapse">{{ settings.shortTitle }}</span>
       </div>
 
-      <el-menu
-        :default-active="activeMenu"
-        :collapse="isCollapse"
-        class="el-menu-vertical"
-        text-color="#595959"
-        active-text-color="#1890ff"
-        background-color="#ffffff"
-        router
-      >
+      <a-menu :selected-keys="[activeMenu]" :collapsed="isCollapse" :default-open-keys="defaultOpenKeys"
+        :style="{ width: '100%', flex: 1 }" @menu-item-click="handleMenuClick" theme="light">
         <!-- Static Dashboard Item -->
-        <el-menu-item index="/dashboard">
-          <el-icon><Odometer /></el-icon>
-          <template #title>
-            <span>首页 (Dashboard)</span>
+        <a-menu-item key="/dashboard">
+          <template #icon>
+            <IconHome />
           </template>
-        </el-menu-item>
+          首页 (Dashboard)
+        </a-menu-item>
 
         <!-- Dynamic Menus fetched from backend -->
         <template v-for="menu in menuList" :key="menu.id">
           <!-- With child items / Submenu -->
-          <el-sub-menu 
-            v-if="menu.children && menu.children.length > 0" 
-            :index="String(menu.id)"
-          >
-            <template #title>
-              <el-icon>
-                <component :is="getMenuIcon(menu)" />
-              </el-icon>
-              <span>{{ menu.menu_name }}</span>
+          <a-sub-menu v-if="menu.children && menu.children.length > 0" :key="String(menu.id)">
+            <template #[getMenuIcon(menu)?'icon':'_none']>
+              <component :is="getMenuIcon(menu)" />
             </template>
+            <template #title>{{ menu.menu_name }}</template>
 
-            <el-menu-item 
-              v-for="child in menu.children" 
-              :key="child.id"
-              :index="resolvePath(child.path)"
-            >
-              <el-icon>
+            <a-menu-item v-for="child in menu.children" :key="resolvePath(child.path)">
+              <template #[getMenuIcon(child)?'icon':'_none']>
                 <component :is="getMenuIcon(child)" />
-              </el-icon>
-              <template #title>
-                <span>{{ child.menu_name }}</span>
               </template>
-            </el-menu-item>
-          </el-sub-menu>
+              {{ child.menu_name }}
+            </a-menu-item>
+          </a-sub-menu>
 
           <!-- Single Menu Item -->
-          <el-menu-item 
-            v-else 
-            :index="resolvePath(menu.path)"
-          >
-            <el-icon>
+          <a-menu-item v-else :key="resolvePath(menu.path)">
+            <template #[getMenuIcon(menu)?'icon':'_none']>
               <component :is="getMenuIcon(menu)" />
-            </el-icon>
-            <template #title>
-              <span>{{ menu.menu_name }}</span>
             </template>
-          </el-menu-item>
+            {{ menu.menu_name }}
+          </a-menu-item>
         </template>
-      </el-menu>
+      </a-menu>
 
-      <!-- Sidebar footer matching screenshot V1.0.0 -->
-      <div class="sidebar-footer" v-if="!isCollapse">
-        <span>系统版本 V1.0.0</span>
+      <!-- Sidebar footer matching reference V1.0.0 -->
+      <div class="sidebar-version" v-if="!isCollapse">
+        系统版本 V1.0.0
       </div>
-    </el-aside>
+    </a-layout-sider>
 
-    <el-container class="main-container">
+    <a-layout class="main-layout">
       <!-- White top header -->
-      <el-header class="header-container">
+      <a-layout-header class="header-container">
         <div class="header-left">
           <!-- Fold/Unfold button to toggle sidebar -->
-          <el-icon class="fold-btn" @click="isCollapse = !isCollapse">
-            <component :is="isCollapse ? Expand : Fold" />
-          </el-icon>
+          <component :is="isCollapse ? 'IconMenuUnfold' : 'IconMenuFold'" class="fold-btn"
+            @click="isCollapse = !isCollapse" />
           <div class="breadcrumbs">
-            <span class="breadcrumb-prefix">轨道交通安全监测系统</span>
+            <span class="breadcrumb-prefix">{{ settings.title }}</span>
             <span class="breadcrumb-separator">/</span>
             <span class="breadcrumb-current">{{ currentRouteTitle }}</span>
           </div>
@@ -97,64 +70,75 @@
         <div class="header-right">
           <!-- Header search box -->
           <div class="header-search">
-            <el-input
-              placeholder="搜索菜单或功能"
-              :prefix-icon="Search"
-              size="small"
-              class="search-bar"
-            />
+            <a-input-search placeholder="搜索菜单或功能" size="small" class="search-bar" />
           </div>
 
           <!-- Notification bell -->
-          <el-badge is-dot class="notice-badge">
-            <el-icon class="notice-icon"><Bell /></el-icon>
-          </el-badge>
+          <a-badge :count="5" dot class="notice-badge">
+            <IconNotification class="notice-icon" />
+          </a-badge>
 
-          <el-dropdown trigger="click" @command="handleCommand">
-            <div class="avatar-wrapper">
-              <el-avatar :size="32" :src="userStore.avatar || defaultAvatar" />
-              <span class="username">{{ userStore.username }}</span>
-              <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+          <a-dropdown trigger="click" @select="handleCommand">
+            <div class="header-avatar-wrap">
+              <a-avatar :size="32" style="background-color: #165DFF; color: #fff; font-weight: 600;">
+                <img v-if="userStore.avatar" :src="userStore.avatar" />
+                <span v-else>A</span>
+              </a-avatar>
+              <span class="user-name">{{ userStore.username }}</span>
+              <IconDown style="font-size: 12px; color: #86909C;" />
             </div>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item command="profile">个人中心</el-dropdown-item>
-                <el-dropdown-item divided command="logout">退出登录</el-dropdown-item>
-              </el-dropdown-menu>
+            <template #content>
+              <a-doption value="profile">
+                <template #icon>
+                  <IconUser />
+                </template>
+                个人中心
+              </a-doption>
+              <a-doption value="logout" style="color: #F53F3F;">
+                <template #icon>
+                  <IconExport />
+                </template>
+                退出登录
+              </a-doption>
             </template>
-          </el-dropdown>
+          </a-dropdown>
         </div>
-      </el-header>
+      </a-layout-header>
 
-      <el-main class="app-main">
+      <a-layout-content class="app-main">
         <router-view v-slot="{ Component }">
           <transition name="fade-transform" mode="out-in">
             <component :is="Component" />
           </transition>
         </router-view>
-      </el-main>
-    </el-container>
-  </el-container>
+      </a-layout-content>
+
+      <!-- Footer -->
+      <div class="app-footer">
+        {{ settings.title }} {{ settings.version }}
+      </div>
+    </a-layout>
+  </a-layout>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { settings } from '../config/settings'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '../store/user'
 import request from '../utils/request'
-import { ElMessage } from 'element-plus'
-import { 
-  Odometer, ArrowDown, Fold, Expand, Search, Bell, Folder, Document, List, User, Avatar, Key, Notebook, Location, Cpu, Monitor
-} from '@element-plus/icons-vue'
-import * as ElementPlusIcons from '@element-plus/icons-vue'
+import { Message } from '@arco-design/web-vue'
+import {
+  IconHome, IconUser, IconNotification, IconDown, IconExport
+} from '@arco-design/web-vue/es/icon'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
-const defaultAvatar = 'https://wpimg.wallstcn.com/f778738c-e4f8-4870-b634-56703b4acafe.gif'
 
 const menuList = ref<any[]>([])
 const isCollapse = ref(false)
+const defaultOpenKeys = ref<string[]>(['system', 'basic', 'business'])
 
 const activeMenu = computed(() => {
   return route.path
@@ -164,29 +148,35 @@ const currentRouteTitle = computed(() => {
   return (route.meta.title as string) || '首页'
 })
 
-// Dynamically resolve icon components
-function getIconComponent(iconName: string) {
-  return (ElementPlusIcons as any)[iconName] || null
-}
-
 // Fallback logic for dynamic menu icons based on keywords in menu names
 function getMenuIcon(menu: any) {
   if (menu.icon && menu.icon !== '#') {
-    const comp = getIconComponent(menu.icon)
-    if (comp) return comp
+    const iconMap: any = {
+      'Setting': 'IconSettings',
+      'Settings': 'IconSettings',
+      'User': 'IconUser',
+      'Avatar': 'IconUser',
+      'List': 'IconMenu',
+      'Key': 'IconLock',
+      'Notebook': 'IconBook',
+      'Folder': 'IconFolder',
+      'Document': 'IconFile',
+      'Odometer': 'IconDashboard',
+      'Monitor': 'IconDesktop',
+      'Bell': 'IconNotification',
+      'Search': 'IconSearch',
+      'Plus': 'IconPlus',
+      'Location': 'IconLocation',
+      'Cpu': 'IconCpu',
+      'Apps': 'IconApps'
+    }
+    const mapped = iconMap[menu.icon] || menu.icon
+    if (mapped) {
+      return mapped.startsWith('Icon') ? mapped : 'Icon' + mapped.charAt(0).toUpperCase() + mapped.slice(1)
+    }
   }
-  
-  const name = menu.menu_name
-  if (name.includes('用户')) return User
-  if (name.includes('角色')) return Avatar
-  if (name.includes('菜单')) return List
-  if (name.includes('权限')) return Key
-  if (name.includes('字典')) return Notebook
-  if (name.includes('路')) return Location
-  if (name.includes('设备')) return Cpu
-  if (name.includes('监测') || name.includes('可视化') || name.includes('监控')) return Monitor
-  
-  return menu.children && menu.children.length > 0 ? Folder : Document
+
+  return null
 }
 
 // Ensure correct route index formats (e.g. '/menu')
@@ -205,13 +195,17 @@ async function fetchMenus() {
   }
 }
 
-const handleCommand = async (command: string) => {
-  if (command === 'logout') {
+function handleMenuClick(key: string) {
+  router.push(key)
+}
+
+const handleCommand = async (val: any) => {
+  if (val === 'logout') {
     await userStore.logout()
-    ElMessage.success('已安全退出登录')
+    Message.success('已安全退出登录')
     router.push('/login')
-  } else if (command === 'profile') {
-    ElMessage.info('个人中心模块开发中')
+  } else if (val === 'profile') {
+    router.push('/system/account')
   }
 }
 
@@ -221,123 +215,154 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.app-wrapper {
-  display: flex;
-  height: 100vh;
-  width: 100vw;
-  background-color: #f0f2f5;
+.layout-container {
+  min-height: 100vh;
+  background-color: #F2F3F5;
 }
 
-/* Light Theme Sidebar styles matching screenshot */
-.sidebar-container {
-  background-color: #ffffff;
-  color: #595959;
+.main-layout {
   display: flex;
   flex-direction: column;
-  border-right: 1px solid #f0f0f0;
-  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.015);
-  transition: width 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-  overflow: hidden;
+  min-height: 100vh;
 }
 
-.logo-container {
-  height: 60px;
+/* Sidebar - White Arco Pro Style */
+:deep(.sidebar-container) {
+  background: #FFFFFF !important;
+  border-right: 1px solid #E5E6EB;
+  transition: all 0.2s ease;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden !important;
+}
+
+:deep(.sidebar-container .arco-layout-sider-children) {
+  display: flex;
+  flex-direction: column;
+  background: #FFFFFF;
+  overflow-x: hidden !important;
+}
+
+/* Sidebar Logo */
+.sidebar-logo-wrap {
+  height: 56px;
   display: flex;
   align-items: center;
-  padding: 0 20px;
-  background-color: #ffffff;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 0 16px;
+  gap: 10px;
+  border-bottom: 1px solid #E5E6EB;
   flex-shrink: 0;
 }
 
-.logo-icon-box {
-  display: inline-flex;
-  justify-content: center;
-  align-items: center;
+.sidebar-logo-icon {
   width: 32px;
   height: 32px;
-  background-color: #1890ff;
-  color: white;
-  border-radius: 8px;
-  margin-right: 12px;
-  box-shadow: 0 4px 10px rgba(24, 144, 255, 0.2);
+  background: #165DFF;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 18px;
   flex-shrink: 0;
 }
 
-.logo-shield {
-  display: block;
-}
-
-.logo-text {
+.sidebar-logo-text {
   font-size: 16px;
-  font-weight: 700;
-  color: #1f2937;
-  letter-spacing: 0.5px;
+  font-weight: 500;
+  color: #1D2129;
   white-space: nowrap;
 }
 
-.el-menu-vertical {
-  border-right: none;
-  flex-grow: 1;
+.sidebar-version {
+  padding: 12px 16px;
+  color: #86909C;
+  font-size: 12px;
+  border-top: 1px solid #E5E6EB;
+  flex-shrink: 0;
+  text-align: center;
 }
 
-:deep(.el-menu-item) {
-  height: 40px;
-  line-height: 40px;
-  margin: 4px 0;
-  color: #4e5969;
+/* Arco Menu Light Theme Override - Premium Flat Theme with Left Indicator */
+:deep(.arco-menu) {
+  background: #FFFFFF !important;
+  border: none !important;
 }
 
-:deep(.el-menu-item:hover) {
-  background-color: #f2f3f5 !important;
-  color: #4e5969;
-}
-
-:deep(.el-menu-item.is-active) {
-  background-color: #e8f1ff !important;
-  color: #165dff !important;
-  font-weight: 500;
-  border-left: 2px solid #165dff;
-}
-
-:deep(.el-sub-menu__title) {
-  height: 40px;
-  line-height: 40px;
-  margin: 4px 0;
-  color: #4e5969;
-}
-
-:deep(.el-sub-menu__title:hover) {
-  background-color: #f2f3f5 !important;
-  color: #4e5969;
-}
-
-.sidebar-footer {
-  height: 48px;
+:deep(.arco-menu-light .arco-menu-item),
+:deep(.arco-menu-light .arco-menu-inline-header),
+:deep(.arco-menu-light .arco-menu-pop-header) {
+  height: 42px !important;
+  line-height: 42px !important;
+  color: #4E5969;
+  font-size: 14px;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  padding: 0 16px !important;
+  transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
   display: flex;
   align-items: center;
-  justify-content: center;
-  border-top: 1px solid #f0f0f0;
-  font-size: 12px;
-  color: #bfbfbf;
-  flex-shrink: 0;
+  border-left: 2px solid transparent;
 }
 
-/* Header container */
-.main-container {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+:deep(.arco-menu-light .arco-menu-item:hover),
+:deep(.arco-menu-light .arco-menu-inline-header:hover),
+:deep(.arco-menu-light .arco-menu-pop-header:hover) {
+  background: #F2F3F5 !important;
+  color: #1D2129 !important;
 }
 
+:deep(.arco-menu-light .arco-menu-item.arco-menu-selected) {
+  background: #E8F1FF !important;
+  color: #165DFF !important;
+  font-weight: 450 !important;
+  border-left: 2px solid #165DFF !important;
+  box-shadow: none !important;
+}
+
+/* Parent sub-menu title selected state (when child is active) */
+:deep(.arco-menu-light .arco-menu-inline-header.arco-menu-selected),
+:deep(.arco-menu-light .arco-menu-pop-header.arco-menu-selected) {
+  color: #165DFF !important;
+  font-weight: 450 !important;
+}
+
+:deep(.arco-menu-light .arco-menu-item.arco-menu-selected .arco-icon),
+:deep(.arco-menu-light .arco-menu-inline-header.arco-menu-selected .arco-icon),
+:deep(.arco-menu-light .arco-menu-pop-header.arco-menu-selected .arco-icon) {
+  color: #165DFF !important;
+}
+
+/* Submenu Popup overrides */
+:deep(.arco-menu-popup .arco-menu-item) {
+  height: 36px;
+  line-height: 36px;
+  font-size: 14px;
+}
+
+:deep(.arco-menu-light .arco-menu-icon-suffix .arco-icon) {
+  color: #86909C;
+}
+
+/* Submenu Indent - Control nesting indentation precisely */
+:deep(.arco-menu-indent) {
+  width: 32px !important;
+  /* Standard spacing hierarchy between levels */
+}
+
+/* Header */
 .header-container {
-  height: 60px;
-  background-color: #ffffff;
-  border-bottom: 1px solid #f0f0f0;
+  height: 56px !important;
+  background: #FFFFFF !important;
+  border-bottom: 1px solid #E5E6EB;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 24px;
+  padding: 0 20px !important;
+  line-height: 56px;
+  flex-shrink: 0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
 }
 
 .header-left {
@@ -348,73 +373,101 @@ onMounted(() => {
 
 .fold-btn {
   font-size: 20px;
-  color: #4e5969;
   cursor: pointer;
+  color: #4E5969;
+  display: flex;
+  align-items: center;
 }
 
 .breadcrumbs {
+  font-size: 14px;
+  color: #86909C;
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
-}
-
-.breadcrumb-prefix {
-  color: #86909c;
 }
 
 .breadcrumb-separator {
-  color: #e5e6eb;
+  color: #E5E6EB;
 }
 
 .breadcrumb-current {
-  color: #1d2129;
+  color: #1D2129;
   font-weight: 500;
 }
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 20px;
 }
 
 .header-search {
   width: 200px;
 }
 
-.search-bar :deep(.el-input__wrapper) {
-  border-radius: 4px;
-  background-color: #f2f3f5;
-  border: none;
-  box-shadow: none !important;
-}
-
 .notice-icon {
-  font-size: 20px;
-  color: #4e5969;
+  font-size: 18px;
+  color: #4E5969;
   cursor: pointer;
-}
-
-.avatar-wrapper {
   display: flex;
   align-items: center;
-  cursor: pointer;
+}
+
+.header-avatar-wrap {
+  display: flex;
+  align-items: center;
   gap: 8px;
+  cursor: pointer;
 }
 
-.username {
+.header-avatar-wrap .user-name {
+  color: #4E5969;
   font-size: 14px;
-  color: #4e5969;
-  font-weight: 500;
 }
 
+/* Menu item icon wrapper and icon styling with double-margin fix */
+:deep(.arco-menu-light .arco-menu-item .arco-menu-icon),
+:deep(.arco-menu-light .arco-menu-inline-header .arco-menu-icon),
+:deep(.arco-menu-light .arco-menu-pop-header .arco-menu-icon) {
+  margin-right: 8px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+:deep(.arco-menu-light .arco-menu-item .arco-icon),
+:deep(.arco-menu-light .arco-menu-inline-header .arco-icon),
+:deep(.arco-menu-light .arco-menu-pop-header .arco-icon) {
+  font-size: 20px !important;
+  /* Enlarge icon to 20px */
+  margin-right: 0 !important;
+  /* Clear inner margin to prevent double-spacing */
+  color: #4E5969;
+  transition: color 0.2s;
+}
+
+/* Content Area */
 .app-main {
-  flex-grow: 1;
-  padding: 24px;
+  background: #F2F3F5;
+  padding: 20px;
+  flex: 1;
   overflow-y: auto;
 }
 
-/* Page transit animations */
+.app-footer {
+  height: 32px;
+  background: #FFFFFF;
+  border-top: 1px solid #E5E6EB;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #86909C;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+/* Transitions */
 .fade-transform-leave-active,
 .fade-transform-enter-active {
   transition: all 0.2s ease-out;

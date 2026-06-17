@@ -76,3 +76,38 @@ async def update_user(db: AsyncSession, db_user: User, user_in: UserUpdate) -> U
     await db.commit()
     await db.refresh(db_user)
     return db_user
+
+async def get_all_users(
+    db: AsyncSession,
+    skip: int = 0,
+    limit: int = 100,
+    username: Optional[str] = None,
+    nickname: Optional[str] = None,
+    status: Optional[str] = None
+) -> list[User]:
+    """
+    Get all users with basic search filters.
+    """
+    query = select(User).filter(User.del_flag == "0")
+    if username:
+        query = query.filter(User.username.like(f"%{username}%"))
+    if nickname:
+        query = query.filter(User.nickname.like(f"%{nickname}%"))
+    if status:
+        query = query.filter(User.status == status)
+    
+    query = query.offset(skip).limit(limit)
+    result = await db.execute(query)
+    return list(result.scalars().all())
+
+async def delete_user(db: AsyncSession, user_id: int) -> bool:
+    """
+    Soft-delete user by setting del_flag = '2'.
+    """
+    db_user = await get_user_by_id(db, user_id)
+    if not db_user or db_user.del_flag == "2":
+        return False
+    db_user.del_flag = "2"
+    db.add(db_user)
+    await db.commit()
+    return True

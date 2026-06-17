@@ -2,6 +2,7 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import { useUserStore } from '../store/user'
 import request from '../utils/request'
+import { settings } from '../config/settings'
 
 // Glob view files for dynamic imports
 const modules = import.meta.glob('../views/**/*.vue')
@@ -138,7 +139,7 @@ router.beforeEach(async (to, _from, next) => {
 
 router.afterEach((to) => {
   if (to.meta.title) {
-    document.title = `${to.meta.title} - 轨道交通安全监测系统`
+    document.title = `${to.meta.title} - ${settings.titleSuffix}`
   }
 })
 

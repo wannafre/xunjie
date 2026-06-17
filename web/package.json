@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@arco-design/web-vue": "^2.58.0",
     "@element-plus/icons-vue": "^2.3.2",
     "axios": "^1.18.0",
     "crypto-js": "^4.2.0",

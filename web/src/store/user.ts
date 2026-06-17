@@ -35,7 +35,7 @@ export const useUserStore = defineStore('user', {
       localStorage.removeItem('token')
       resetDynamicRoutesFlag()
     },
-    async login(loginForm: { username: string; password: string }) {
+    async login(loginForm: { username: string; password: string; captchaVerification?: string }) {
       const res: any = await request.post('/auth/login', loginForm)
       if (res.access_token) {
         this.setToken(res.access_token)
