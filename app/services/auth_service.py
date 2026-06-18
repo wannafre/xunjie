@@ -2,6 +2,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import Optional
 import logging
+from datetime import datetime, timedelta
+from app.core.config import settings
 
 from app.models.user import User
 from app.models.role import Role
@@ -36,6 +38,7 @@ async def seed_default_users(db: AsyncSession) -> None:
             {"name": "角色管理", "perms": "system:role:list", "path": "role", "order": 2},
             {"name": "菜单管理", "perms": "system:menu:list", "path": "menu", "order": 3},
             {"name": "字典管理", "perms": "system:dict:list", "path": "dict", "order": 4},
+            {"name": "通知管理", "perms": "system:notification:list", "path": "notification", "order": 5},
         ]
         
         menus_by_name = {}
@@ -43,13 +46,18 @@ async def seed_default_users(db: AsyncSession) -> None:
             res = await db.execute(select(Menu).filter(Menu.menu_name == item["name"], Menu.menu_type == "C"))
             menu_obj = res.scalars().first()
             if not menu_obj:
+                res_p = await db.execute(select(Menu).filter(Menu.menu_type == "M", Menu.path == "system"))
+                p_menu = res_p.scalars().first()
+                p_id = p_menu.id if p_menu else 0
+                
                 menu_obj = Menu(
                     menu_name=item["name"],
                     menu_type="C",
                     perms=item["perms"],
-                    path=item["path"],
+                    path=item["path"] if p_id == 0 else f"system/{item['path']}",
+                    component=f"system/{item['path']}/index.vue" if p_id != 0 else None,
                     order_num=item["order"],
-                    parent_id=0,
+                    parent_id=p_id,
                     status="0",
                     visible="0"
                 )
@@ -84,6 +92,12 @@ async def seed_default_users(db: AsyncSession) -> None:
                 {"name": "字典新增", "perms": "system:dict:add"},
                 {"name": "字典修改", "perms": "system:dict:edit"},
                 {"name": "字典删除", "perms": "system:dict:remove"},
+            ],
+            "通知管理": [
+                {"name": "通知查询", "perms": "system:notification:list"},
+                {"name": "通知新增", "perms": "system:notification:add"},
+                {"name": "通知修改", "perms": "system:notification:edit"},
+                {"name": "通知删除", "perms": "system:notification:remove"},
             ],
         }
 
@@ -190,6 +204,61 @@ async def seed_default_users(db: AsyncSession) -> None:
             db.add_all(dict_datas)
             await db.commit()
             logger.info("Default dictionary types and data seeded successfully.")
+            
+            # 6. 种子初始化通知数据
+            from app.models.notification import Notification, UserNotification
+            res_notices = await db.execute(select(Notification))
+            all_notices = res_notices.scalars().all()
+            if not all_notices:
+                admin_user = await get_user_by_username(db, "admin")
+                editor_user = await get_user_by_username(db, "editor")
+                
+                # Mock notifications data
+                notices_to_create = []
+                if admin_user:
+                    notices_to_create.append(
+                        {"user_id": admin_user.id, "title": "系统升级通知", "content": "尊敬的超级管理员，系统已成功升级至 V1.0.0 版本。本次更新优化了个人账号管理、路由菜单架构，并全新上线了通知管理功能。", "type": "system", "is_read": 0}
+                    )
+                    notices_to_create.append(
+                        {"user_id": admin_user.id, "title": "安全警报：异地登录提醒", "content": "您的账号于今日在未知 IP 登录，请确认是否为本人操作。如非本人操作，请及时前往个人中心修改密码。", "type": "message", "is_read": 0}
+                    )
+                    notices_to_create.append(
+                        {"user_id": admin_user.id, "title": "待处理任务：审核权限申请", "content": "您有一条新的审核任务：普通编辑员（editor）提交了关于“系统字典修改”权限的审批申请，请及时前往处理。", "type": "todo", "is_read": 0}
+                    )
+                    notices_to_create.append(
+                        {"user_id": admin_user.id, "title": "欢迎加入迅捷系统", "content": "欢迎使用迅捷后台管理系统！这是一个基于 FastAPI 与 Vue 3 构建的轻量级开发框架。", "type": "system", "is_read": 1}
+                    )
+                if editor_user:
+                    notices_to_create.append(
+                        {"user_id": editor_user.id, "title": "账号开通成功", "content": "您的编辑员账号已开通，分配角色为“编辑者”。请按规定开展内容维护工作。", "type": "system", "is_read": 0}
+                    )
+                    notices_to_create.append(
+                        {"user_id": editor_user.id, "title": "待办：完善个人基本资料", "content": "请及时进入“个人账号信息维护”页面，完善您的手机号码、电子邮箱等联系信息。", "type": "todo", "is_read": 0}
+                    )
+                
+                for item in notices_to_create:
+                    # 1. Add notification content
+                    notif = Notification(
+                        title=item["title"],
+                        content=item["content"],
+                        type=item["type"],
+                        create_by="admin"
+                    )
+                    db.add(notif)
+                    await db.commit()
+                    await db.refresh(notif)
+                    
+                    # 2. Add user read state
+                    user_notif = UserNotification(
+                        user_id=item["user_id"],
+                        notification_id=notif.id,
+                        is_read=item["is_read"],
+                        read_time=settings.get_current_time() if item["is_read"] == 1 else None
+                    )
+                    db.add(user_notif)
+                    await db.commit()
+                
+                logger.info("Default notifications and user read states seeded successfully.")
             
     except Exception as e:
         logger.error(f"Error seeding default users, roles, and menus: {e}")

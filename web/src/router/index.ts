@@ -25,6 +25,24 @@ const routes: Array<RouteRecordRaw> = [
         name: 'Dashboard',
         component: () => import('../views/dashboard/index.vue'),
         meta: { title: '首页', icon: 'Odometer' }
+      },
+      {
+        path: 'system/account',
+        name: 'Account',
+        component: () => import('../views/system/account/index.vue'),
+        meta: { title: '个人信息' }
+      },
+      {
+        path: 'system/notification',
+        name: 'Notification',
+        component: () => import('../views/system/notification/index.vue'),
+        meta: { title: '通知管理' }
+      },
+      {
+        path: 'notification',
+        name: 'MyNotification',
+        component: () => import('../views/notification/index.vue'),
+        meta: { title: '通知公告中心' }
       }
     ]
   }

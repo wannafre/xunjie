@@ -75,9 +75,50 @@
           </div>
 
           <!-- Notification bell -->
-          <a-badge :count="5" dot class="notice-badge">
-            <IconNotification class="notice-icon" />
-          </a-badge>
+          <a-popover trigger="click" position="br" content-class="notice-popover-content" :position-offset="[0, 12]" :show-arrow="false">
+            <a-badge :count="unreadCount" :dot="unreadCount > 0" class="notice-badge">
+              <IconNotification class="notice-icon" />
+            </a-badge>
+            <template #content>
+              <div class="notice-popover-container">
+                <div class="notice-popover-header">
+                  <span class="notice-popover-title">通知公告</span>
+                  <a-link v-if="unreadCount > 0" @click="handleMarkAllRead">全部已读</a-link>
+                </div>
+                <a-tabs default-active-key="all" type="line" size="small" class="notice-popover-tabs">
+                  <a-tab-pane key="all" title="全部">
+                    <a-list :bordered="false" size="small" :split="false">
+                      <a-list-item v-for="item in noticeList.slice(0, 5)" :key="item.id" class="notice-popover-item" @click="handleViewNotice(item)">
+                        <div class="item-wrap" :class="{ 'item-unread': item.is_read === 0 }">
+                          <div class="item-title">{{ item.title }}</div>
+                          <div class="item-time">{{ formatDate(item.create_time) }}</div>
+                        </div>
+                      </a-list-item>
+                      <template #empty v-if="noticeList.length === 0">
+                        <div class="empty-notices">暂无通知</div>
+                      </template>
+                    </a-list>
+                  </a-tab-pane>
+                  <a-tab-pane key="unread" title="未读">
+                    <a-list :bordered="false" size="small" :split="false">
+                      <a-list-item v-for="item in unreadNoticeList.slice(0, 5)" :key="item.id" class="notice-popover-item" @click="handleViewNotice(item)">
+                        <div class="item-wrap item-unread">
+                          <div class="item-title">{{ item.title }}</div>
+                          <div class="item-time">{{ formatDate(item.create_time) }}</div>
+                        </div>
+                      </a-list-item>
+                      <template #empty v-if="unreadNoticeList.length === 0">
+                        <div class="empty-notices">暂无未读通知</div>
+                      </template>
+                    </a-list>
+                  </a-tab-pane>
+                </a-tabs>
+                <div class="notice-popover-footer">
+                  <a-button type="text" size="small" long @click="goToNotificationCenter">查看全部</a-button>
+                </div>
+              </div>
+            </template>
+          </a-popover>
 
           <a-dropdown trigger="click" @select="handleCommand">
             <div class="header-avatar-wrap">
@@ -105,18 +146,21 @@
         </div>
       </a-layout-header>
 
+      <a-scrollbar style="height: 100%; overflow: auto;" outer-style="flex: 1; min-height: 0;">
       <a-layout-content class="app-main">
-        <router-view v-slot="{ Component }">
-          <transition name="fade-transform" mode="out-in">
-            <component :is="Component" />
-          </transition>
-        </router-view>
-      </a-layout-content>
+          <router-view v-slot="{ Component }">
+            <transition name="fade-transform" mode="out-in">
+              <component :is="Component" />
+            </transition>
+          </router-view>
+        </a-layout-content>
+      </a-scrollbar>
 
       <!-- Footer -->
 
     </a-layout>
   </a-layout>
+  <DetailModal v-model:visible="detailModalVisible" :notification="selectedNotice" />
 </template>
 
 <script setup lang="ts">
@@ -129,6 +173,9 @@ import { Message } from '@arco-design/web-vue'
 import {
   IconHome, IconUser, IconNotification, IconDown, IconExport
 } from '@arco-design/web-vue/es/icon'
+import { getMyNotifications, getUnreadCount, markAsRead, markAllAsRead } from '../api/notification'
+import { formatDate } from '../utils'
+import DetailModal from '../components/Notification/DetailModal.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -137,6 +184,63 @@ const userStore = useUserStore()
 const menuList = ref<any[]>([])
 const isCollapse = ref(false)
 const defaultOpenKeys = ref<string[]>(['system', 'basic', 'business'])
+
+// Notification states
+const unreadCount = ref(0)
+const noticeList = ref<any[]>([])
+const unreadNoticeList = computed(() => noticeList.value.filter(n => n.is_read === 0))
+
+const detailModalVisible = ref(false)
+const selectedNotice = ref<any>(null)
+
+async function fetchUnreadCount() {
+  try {
+    const res: any = await getUnreadCount()
+    unreadCount.value = res.count || 0
+  } catch (err) {
+    console.error(err)
+  }
+}
+
+async function fetchNotices() {
+  try {
+    const res: any = await getMyNotifications()
+    noticeList.value = res || []
+  } catch (err) {
+    console.error(err)
+  }
+}
+
+async function handleMarkAllRead() {
+  try {
+    await markAllAsRead()
+    Message.success('已将所有未读通知标记为已读')
+    await fetchUnreadCount()
+    await fetchNotices()
+  } catch (err) {
+    console.error(err)
+  }
+}
+
+async function handleViewNotice(item: any) {
+  selectedNotice.value = item
+  detailModalVisible.value = true
+  
+  if (item.is_read === 0) {
+    try {
+      await markAsRead(item.id)
+      await fetchUnreadCount()
+      await fetchNotices()
+    } catch (err) {
+      console.error(err)
+    }
+  }
+}
+
+function goToNotificationCenter() {
+  router.push('/notification')
+}
+
 
 const activeMenu = computed(() => {
   return route.path
@@ -209,19 +313,23 @@ const handleCommand = async (val: any) => {
 
 onMounted(() => {
   fetchMenus()
+  fetchUnreadCount()
+  fetchNotices()
 })
 </script>
 
 <style scoped>
 .layout-container {
-  min-height: 100vh;
+  height: 100vh;
   background-color: #F2F3F5;
+  overflow: hidden;
 }
 
 .main-layout {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 /* Sidebar - White Arco Pro Style */
@@ -465,8 +573,6 @@ onMounted(() => {
 .app-main {
   background: #F2F3F5;
   padding: 20px;
-  flex: 1;
-  overflow-y: auto;
 }
 
 .app-footer {
@@ -496,4 +602,96 @@ onMounted(() => {
   opacity: 0;
   transform: translateX(15px);
 }
+
+/* Notice Popover Styles */
+
+.notice-popover-container {
+  width: 300px;
+}
+
+.notice-popover-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #F2F3F5;
+}
+
+.notice-popover-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1D2129;
+}
+
+.notice-popover-tabs {
+  padding: 0 8px;
+}
+
+:deep(.notice-popover-tabs .arco-tabs-nav) {
+  margin-bottom: 8px;
+}
+
+:deep(.notice-popover-tabs .arco-tabs-content) {
+  padding-top: 0;
+}
+
+.notice-popover-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  list-style: none;
+}
+
+.notice-popover-item:hover {
+  background-color: #F2F3F5;
+}
+
+.item-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.item-title {
+  font-size: 13px;
+  color: #4E5969;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.item-unread .item-title {
+  color: #1D2129;
+  font-weight: 550;
+}
+
+.item-time {
+  font-size: 11px;
+  color: #86909C;
+}
+
+.empty-notices {
+  text-align: center;
+  padding: 30px 0;
+  color: #86909C;
+  font-size: 13px;
+}
+
+.notice-popover-footer {
+  border-top: 1px solid #F2F3F5;
+  padding: 4px 0;
+}
 </style>
+
+<style>
+.notice-popover-content {
+  padding: 0 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
+  border: 1px solid #E5E6EB !important;
+  transform: translateY(14px) !important;
+}
+</style>
+
