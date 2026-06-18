@@ -23,3 +23,12 @@ export function deleteUser(id: number | string) {
 export function resetUserPassword(id: number | string) {
   return request.put(`/user/${id}/reset-pwd`)
 }
+
+export function updateUserProfile(data: any) {
+  return request.put('/user/profile', data)
+}
+
+export function updateUserPassword(data: any) {
+  return request.put('/user/profile/update-pwd', data)
+}
+

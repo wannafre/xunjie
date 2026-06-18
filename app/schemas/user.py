@@ -56,3 +56,16 @@ class UserOut(UserBase):
     class Config:
         from_attributes = True
 
+
+class UserProfileUpdate(BaseModel):
+    nickname: Optional[str] = Field(None, description="用户昵称")
+    email: Optional[str] = Field(None, description="用户邮箱")
+    phonenumber: Optional[str] = Field(None, description="手机号码")
+    sex: Optional[str] = Field(None, description="用户性别")
+
+
+class UserPasswordUpdate(BaseModel):
+    old_password: str = Field(..., description="旧密码")
+    new_password: str = Field(..., min_length=6, description="新密码")
+
+

@@ -81,9 +81,8 @@
 
           <a-dropdown trigger="click" @select="handleCommand">
             <div class="header-avatar-wrap">
-              <a-avatar :size="32" style="background-color: #165DFF; color: #fff; font-weight: 600;">
-                <img v-if="userStore.avatar" :src="userStore.avatar" />
-                <span v-else>A</span>
+              <a-avatar :key="userStore.avatar" :size="32" style="background-color: #165DFF; color: #fff; font-weight: 600;" :image-url="userStore.avatar">
+                {{ userStore.username?.slice(0, 1).toUpperCase() }}
               </a-avatar>
               <span class="user-name">{{ userStore.username }}</span>
               <IconDown style="font-size: 12px; color: #86909C;" />
@@ -418,6 +417,22 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   cursor: pointer;
+}
+
+.header-avatar-wrap :deep(.arco-avatar-image) {
+  display: flex !important;
+  width: 100% !important;
+  height: 100% !important;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-avatar-wrap :deep(img) {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 50% !important;
+  display: block !important;
 }
 
 .header-avatar-wrap .user-name {

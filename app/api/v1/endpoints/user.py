@@ -3,8 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 
 from app.core.database import get_db
-from app.api.v1.endpoints.auth import check_permissions
-from app.schemas.user import UserCreate, UserUpdate, UserOut
+from app.api.v1.endpoints.auth import check_permissions, get_current_user
+from app.schemas.user import UserCreate, UserUpdate, UserOut, UserProfileUpdate, UserPasswordUpdate
 from app.crud import user as crud_user
 
 router = APIRouter()
@@ -142,3 +142,60 @@ async def reset_user_password_endpoint(
     await db.commit()
     
     return {"message": "Success", "new_password": new_password}
+
+
+@router.put("/profile", response_model=UserOut)
+async def update_profile_endpoint(
+    profile_in: UserProfileUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """
+    Update logged-in user's profile info (nickname, email, phonenumber, sex).
+    """
+    if profile_in.nickname is not None:
+        current_user.nickname = profile_in.nickname
+    if profile_in.email is not None:
+        current_user.email = profile_in.email
+    if profile_in.phonenumber is not None:
+        current_user.phonenumber = profile_in.phonenumber
+    if profile_in.sex is not None:
+        current_user.sex = profile_in.sex
+        
+    db.add(current_user)
+    await db.commit()
+    await db.refresh(current_user)
+    return current_user
+
+
+@router.put("/profile/update-pwd")
+async def update_password_endpoint(
+    pwd_in: UserPasswordUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """
+    Update logged-in user's password.
+    """
+    from app.core.security import verify_password, get_password_hash
+    import random
+    import string
+    
+    # 1. Verify old password
+    if not verify_password(pwd_in.old_password, current_user.password, current_user.salt):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="原密码错误"
+        )
+        
+    # 2. Update to new password
+    new_salt = "".join(random.choices(string.ascii_letters + string.digits, k=16))
+    hashed_password = get_password_hash(pwd_in.new_password, new_salt)
+    
+    current_user.password = hashed_password
+    current_user.salt = new_salt
+    
+    db.add(current_user)
+    await db.commit()
+    return {"message": "密码修改成功"}
+
